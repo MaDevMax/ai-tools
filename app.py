@@ -4,11 +4,9 @@ import os
 import re
 
 app = Flask(__name__)
-app.secret_key = "change_this_key"
+app.secret_key = "secret_key_change_me"
 
 FREE_LIMIT = 5
-
-# простой PRO ключ (временно)
 PRO_KEY = "1234"
 
 
@@ -32,13 +30,15 @@ def ask_ai(prompt):
                 "messages": [{"role": "user", "content": prompt}]
             }
         )
+
         return clean_text(r.json()["choices"][0]["message"]["content"])
+
     except Exception as e:
-        return f"Ошибка: {str(e)}"
+        return f"Ошибка AI: {str(e)}"
 
 
 # ======================
-# LIMIT + PRO
+# LIMITS
 # ======================
 def is_pro():
     return session.get("pro", False)
@@ -48,18 +48,17 @@ def can_use():
     return is_pro() or session.get("used", 0) < FREE_LIMIT
 
 
-def add_usage():
+def add_use():
     if not is_pro():
         session["used"] = session.get("used", 0) + 1
 
 
 # ======================
-# UI
+# UI TEMPLATE
 # ======================
 def page(title, content):
     used = session.get("used", 0)
     pro = is_pro()
-
     left = "∞" if pro else max(FREE_LIMIT - used, 0)
 
     return f"""
@@ -81,6 +80,13 @@ body {{
     border-radius:10px;
 }}
 
+nav a {{
+    margin-right:10px;
+    text-decoration:none;
+    font-weight:bold;
+    color:#2d6cdf;
+}}
+
 .hero {{
     background:#111;
     color:white;
@@ -89,15 +95,8 @@ body {{
     margin-bottom:20px;
 }}
 
-nav a {{
-    margin-right:10px;
-    text-decoration:none;
-    font-weight:bold;
-    color:#2d6cdf;
-}}
-
-.pro-box {{
-    background: linear-gradient(90deg, #000, #333);
+.pro {{
+    background:#000;
     color:white;
     padding:15px;
     border-radius:10px;
@@ -138,9 +137,9 @@ pre {{
 </nav>
 
 <div class="hero">
-<h2>AI карточки товаров</h2>
-<p>Бесплатно: {left} генераций</p>
-<p>{"PRO активирован" if pro else "FREE режим"}</p>
+<h2>AI Product Builder</h2>
+<p>FREE: {left} генераций</p>
+<p>{"PRO ACTIVE" if pro else "FREE MODE"}</p>
 </div>
 
 {content}
@@ -156,8 +155,8 @@ pre {{
 # ======================
 @app.route("/")
 def home():
-    return page("AI Tool", """
-<h3>Создавай продающие карточки товаров за 10 секунд</h3>
+    return page("Home", """
+<h3>Генерация продающих карточек товаров</h3>
 <a href="/wb"><button>Начать</button></a>
 """)
 
@@ -171,15 +170,15 @@ def wb():
 
     if request.method == "POST":
         if not can_use():
-            return page("LIMIT", "<h3>Лимит исчерпан</h3><a href='/pro'><button>Купить PRO</button></a>")
+            return page("LIMIT", "<h3>Лимит закончился</h3><a href='/pro'><button>PRO доступ</button></a>")
 
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
-        prompt = f"Напиши продающее описание WB/Ozon: {product} {features}"
+        prompt = f"Напиши продающее описание WB/Ozon: {product}. {features}"
 
         result = ask_ai(prompt)
-        add_usage()
+        add_use()
 
     return page("WB", f"""
 <form method="POST">
@@ -201,19 +200,19 @@ def avito():
 
     if request.method == "POST":
         if not can_use():
-            return page("LIMIT", "<a href='/pro'><button>Купить PRO</button></a>")
+            return page("LIMIT", "<a href='/pro'><button>PRO доступ</button></a>")
 
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
-        prompt = f"Сделай объявление Авито: {product} {features}"
+        prompt = f"Сделай объявление Авито: {product}. {features}"
 
         result = ask_ai(prompt)
-        add_usage()
+        add_use()
 
     return page("Avito", f"""
 <form method="POST">
-<input name="product">
+<input name="product" placeholder="Название товара">
 <textarea name="features"></textarea>
 <button>Сгенерировать</button>
 </form>
@@ -223,27 +222,26 @@ def avito():
 
 
 # ======================
-# PRO PAGE
+# PRO
 # ======================
 @app.route("/pro", methods=["GET", "POST"])
 def pro():
     msg = ""
 
     if request.method == "POST":
-        key = request.form.get("key", "")
+        key = request.form.get("key")
+
         if key == PRO_KEY:
             session["pro"] = True
-            msg = "PRO активирован!"
+            msg = "PRO включен!"
         else:
             msg = "Неверный ключ"
 
     return page("PRO", f"""
 <h2>PRO доступ</h2>
 
-<p>Введи ключ для активации PRO:</p>
-
 <form method="POST">
-<input name="key" placeholder="PRO ключ">
+<input name="key" placeholder="введите ключ 1234">
 <button>Активировать</button>
 </form>
 

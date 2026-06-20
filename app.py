@@ -29,13 +29,16 @@ def ask_ai(prompt):
                 "messages": [{"role": "user", "content": prompt}]
             }
         )
-        return clean_text(r.json()["choices"][0]["message"]["content"])
+
+        data = r.json()
+        return clean_text(data["choices"][0]["message"]["content"])
+
     except Exception as e:
-        return str(e)
+        return f"Ошибка: {str(e)}"
 
 
 # ======================
-# LIMIT
+# LIMITS
 # ======================
 def check_limit():
     return session.get("used", 0) < FREE_LIMIT
@@ -50,6 +53,7 @@ def add_usage():
 # ======================
 def page(title, content):
     used = session.get("used", 0)
+    left = max(FREE_LIMIT - used, 0)
 
     return f"""
 <html>
@@ -63,7 +67,7 @@ body {{
 }}
 
 .container {{
-    width:800px;
+    width:850px;
     margin:40px auto;
     background:white;
     padding:20px;
@@ -85,6 +89,14 @@ nav a {{
     margin-bottom:20px;
 }}
 
+.pro {{
+    background: linear-gradient(90deg, #000, #333);
+    color:white;
+    padding:15px;
+    border-radius:10px;
+    margin-top:15px;
+}}
+
 button {{
     background:#2d6cdf;
     color:white;
@@ -94,7 +106,7 @@ button {{
     margin-top:10px;
 }}
 
-textarea,input {{
+input, textarea {{
     width:100%;
     margin-top:10px;
     padding:10px;
@@ -104,6 +116,7 @@ pre {{
     background:#eee;
     padding:15px;
     white-space:pre-wrap;
+    margin-top:15px;
 }}
 </style>
 </head>
@@ -113,14 +126,22 @@ pre {{
 
 <nav>
 <a href="/">Главная</a>
-<a href="/wb">WB/Ozon</a>
+<a href="/wb">WB / Ozon</a>
 <a href="/avito">Avito</a>
 </nav>
 
 <div class="hero">
-<h2>AI помогает продавать товары быстрее</h2>
-<p>Создавай продающие карточки товаров за 10 секунд</p>
-<p>Бесплатно: {FREE_LIMIT - used} генераций</p>
+<h2>AI пишет продающие карточки товаров</h2>
+<p>WB / Ozon / Avito — за 10 секунд</p>
+<p>Бесплатно осталось: <b>{left}</b> генераций</p>
+</div>
+
+<div class="pro">
+<h3>🔥 PRO версия</h3>
+<p>• Без лимитов</p>
+<p>• Более сильные продающие тексты</p>
+<p>• Быстрее генерация</p>
+<p><b>299₽ / месяц (скоро)</b></p>
 </div>
 
 {content}
@@ -132,21 +153,26 @@ pre {{
 
 
 # ======================
-# HOME (ПРОДАЮЩАЯ)
+# HOME
 # ======================
 @app.route("/")
 def home():
     return page("AI Sales Tool", """
-<p><b>Что это:</b> AI пишет продающие карточки товаров</p>
-<p><b>Для кого:</b> WB / Ozon / Avito продавцы</p>
-<p><b>Результат:</b> больше продаж без копирайтера</p>
+<h3>Что это:</h3>
+<p>AI создаёт продающие описания товаров</p>
+
+<h3>Для кого:</h3>
+<p>WB / Ozon / Avito продавцы</p>
+
+<h3>Результат:</h3>
+<p>Больше продаж без копирайтера</p>
 
 <a href="/wb"><button>Начать бесплатно</button></a>
 """)
 
 
 # ======================
-# WB
+# WB / OZON
 # ======================
 @app.route("/wb", methods=["GET", "POST"])
 def wb():
@@ -156,22 +182,26 @@ def wb():
         if not check_limit():
             return page("LIMIT", "<h3>Лимит исчерпан</h3><p>PRO версия скоро</p>")
 
-        p = request.form.get("product", "")
-        f = request.form.get("features", "")
+        product = request.form.get("product", "")
+        features = request.form.get("features", "")
 
         prompt = f"""
-Пиши ТОЛЬКО на русском.
+Ты маркетинговый копирайтер.
 
-Сделай продающее описание для WB/Ozon:
+Напиши продающее описание для WB/Ozon.
 
-Товар: {p}
-Характеристики: {f}
+Товар: {product}
+Характеристики: {features}
+
+Стиль: продающий, простой, без воды.
 """
 
         result = ask_ai(prompt)
         add_usage()
 
-    return page("WB", f"""
+    return page("WB/Ozon", f"""
+<h2>WB / Ozon генератор</h2>
+
 <form method="POST">
 <input name="product" placeholder="Название товара">
 <textarea name="features" placeholder="Характеристики"></textarea>
@@ -193,25 +223,27 @@ def avito():
         if not check_limit():
             return page("LIMIT", "<h3>Лимит исчерпан</h3>")
 
-        p = request.form.get("product", "")
-        f = request.form.get("features", "")
+        product = request.form.get("product", "")
+        features = request.form.get("features", "")
 
         prompt = f"""
-Пиши ТОЛЬКО на русском.
+Ты пишешь объявления для Авито.
 
-Сделай объявление Авито:
+Товар: {product}
+Описание: {features}
 
-Товар: {p}
-Описание: {f}
+Сделай коротко, продающе, чтобы звонили.
 """
 
         result = ask_ai(prompt)
         add_usage()
 
     return page("Avito", f"""
+<h2>Avito генератор</h2>
+
 <form method="POST">
-<input name="product">
-<textarea name="features"></textarea>
+<input name="product" placeholder="Название товара">
+<textarea name="features" placeholder="Описание"></textarea>
 <button>Сгенерировать</button>
 </form>
 
@@ -220,4 +252,4 @@ def avito():
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)

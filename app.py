@@ -4,14 +4,14 @@ import os
 import re
 
 app = Flask(__name__)
-app.secret_key = "secret_key_change_me"
+app.secret_key = "change_this_key"
 
 FREE_LIMIT = 5
 PRO_KEY = "1234"
 
 
 # ======================
-# AI
+# AI REQUEST
 # ======================
 def clean_text(text):
     return re.sub(r"\*\*(.*?)\*\*", r"\1", text)
@@ -38,7 +38,7 @@ def ask_ai(prompt):
 
 
 # ======================
-# LIMITS
+# PRO + LIMITS
 # ======================
 def is_pro():
     return session.get("pro", False)
@@ -54,7 +54,7 @@ def add_use():
 
 
 # ======================
-# UI
+# UI TEMPLATE
 # ======================
 def page(title, content):
     used = session.get("used", 0)
@@ -97,21 +97,12 @@ nav a {{
     margin-bottom:20px;
 }}
 
-.pro {{
-    background:#000;
-    color:white;
-    padding:15px;
-    border-radius:12px;
-    margin-top:15px;
-}}
-
 input, textarea {{
     width:100%;
     margin-top:10px;
     padding:12px;
     border-radius:8px;
     border:1px solid #ddd;
-    font-size:14px;
 }}
 
 button {{
@@ -120,7 +111,6 @@ button {{
     border:none;
     padding:12px;
     border-radius:8px;
-    margin-top:12px;
     cursor:pointer;
     font-weight:bold;
 }}
@@ -166,7 +156,7 @@ function showLoading() {{
 
 <div class="hero">
 <h2>🚀 AI Product Builder</h2>
-<p>FREE осталось: <b>{left}</b> генераций</p>
+<p>FREE осталось: <b>{left}</b></p>
 <p>{"💎 PRO ACTIVE" if pro else "FREE MODE"}</p>
 </div>
 
@@ -184,10 +174,9 @@ function showLoading() {{
 @app.route("/")
 def home():
     return page("Home", """
-<h3>🔥 Создавай продающие карточки товаров за 10 секунд</h3>
-<p>WB / Ozon / Avito — быстрее чем копирайтер</p>
-
-<a href="/wb"><button>Начать бесплатно</button></a>
+<h2>🔥 AI генератор карточек товаров</h2>
+<p>Создавай продающие тексты за 10 секунд</p>
+<a href="/wb"><button>Начать</button></a>
 """)
 
 
@@ -200,17 +189,32 @@ def wb():
 
     if request.method == "POST":
         if not can_use():
-            return page("LIMIT", "<h3>Лимит закончился</h3><a href='/pro'><button>Включить PRO</button></a>")
+            return page("LIMIT", "<h2>Лимит исчерпан</h2><a href='/pro'><button>Получить PRO</button></a>")
 
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
-        prompt = f"Напиши продающее описание WB/Ozon: {product}. {features}"
+        prompt = f"""
+Ты топовый маркетолог уровня Amazon.
+
+Сделай продающую карточку товара:
+
+1. Заголовок
+2. Описание
+3. Преимущества
+4. Почему купить сейчас
+5. Для кого
+
+Товар: {product}
+Характеристики: {features}
+
+Стиль: продающий, эмоциональный, без воды
+"""
 
         result = ask_ai(prompt)
         add_use()
 
-    return page("WB/Ozon", f"""
+    return page("WB", f"""
 <h2>WB / Ozon генератор</h2>
 
 <form method="POST" onsubmit="showLoading()">
@@ -220,7 +224,7 @@ def wb():
 <button type="submit">Сгенерировать</button>
 
 <div id="loading" class="loading">
-⏳ Генерация... подождите
+⏳ Генерация продающего текста...
 </div>
 </form>
 
@@ -237,12 +241,25 @@ def avito():
 
     if request.method == "POST":
         if not can_use():
-            return page("LIMIT", "<a href='/pro'><button>Включить PRO</button></a>")
+            return page("LIMIT", "<a href='/pro'><button>Получить PRO</button></a>")
 
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
-        prompt = f"Сделай продающее объявление Авито: {product}. {features}"
+        prompt = f"""
+Ты эксперт по продажам на Avito.
+
+Сделай объявление которое получает звонки:
+
+1. Заголовок
+2. Описание
+3. Выгоды
+4. Почему купить сейчас
+5. Призыв к действию
+
+Товар: {product}
+Описание: {features}
+"""
 
         result = ask_ai(prompt)
         add_use()
@@ -257,7 +274,7 @@ def avito():
 <button type="submit">Сгенерировать</button>
 
 <div id="loading" class="loading">
-⏳ Создаю объявление...
+⏳ Создаю продающее объявление...
 </div>
 </form>
 
@@ -266,7 +283,7 @@ def avito():
 
 
 # ======================
-# PRO
+# PRO PAGE
 # ======================
 @app.route("/pro", methods=["GET", "POST"])
 def pro():
@@ -284,10 +301,10 @@ def pro():
     return page("PRO", f"""
 <h2>💎 PRO доступ</h2>
 
-<p>Введи ключ для активации PRO:</p>
+<p>Введите ключ для активации PRO</p>
 
 <form method="POST">
-<input name="key" placeholder="например 1234">
+<input name="key" placeholder="PRO ключ">
 <button>Активировать</button>
 </form>
 

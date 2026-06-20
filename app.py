@@ -40,7 +40,7 @@ def ask_ai(prompt):
 
 
 # ======================
-# UI TEMPLATE (С МЕНЮ)
+# UI TEMPLATE
 # ======================
 def page(title, content):
     return f"""
@@ -147,7 +147,7 @@ def page(title, content):
 # ======================
 @app.route("/")
 def home():
-    return page("AI Tools", "<p>Выбери инструмент выше 👆</p>")
+    return page("AI Tools", "<p>Выбери инструмент 👆</p>")
 
 
 # ======================
@@ -161,7 +161,14 @@ def wb():
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
-        prompt = f"Напиши продающее описание для WB/Ozon: {product}. {features}"
+        prompt = f"""
+Ты пишешь ТОЛЬКО на русском языке. Никаких других языков.
+
+Напиши продающее описание для WB/Ozon:
+
+Товар: {product}
+Характеристики: {features}
+"""
         result = ask_ai(prompt)
 
     return page("WB / Ozon Generator", f"""
@@ -189,7 +196,14 @@ def avito():
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
-        prompt = f"Сделай объявление Авито: {product}. {features}"
+        prompt = f"""
+Ты пишешь ТОЛЬКО на русском языке. Никаких других языков.
+
+Сделай объявление Авито:
+
+Товар: {product}
+Описание: {features}
+"""
         result = ask_ai(prompt)
 
     return page("Avito Generator", f"""
@@ -216,7 +230,12 @@ def names():
     if request.method == "POST":
         product = request.form.get("product", "")
 
-        prompt = f"Придумай 10 продающих названий для: {product}"
+        prompt = f"""
+Ты пишешь ТОЛЬКО на русском языке. Никаких других языков.
+
+Придумай 10 продающих названий для товара:
+{product}
+"""
         result = ask_ai(prompt)
 
     return page("Name Generator", f"""

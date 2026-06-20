@@ -8,6 +8,9 @@ app.secret_key = "change_this_key"
 
 FREE_LIMIT = 5
 
+# простой PRO ключ (временно)
+PRO_KEY = "1234"
+
 
 # ======================
 # AI
@@ -29,23 +32,25 @@ def ask_ai(prompt):
                 "messages": [{"role": "user", "content": prompt}]
             }
         )
-
-        data = r.json()
-        return clean_text(data["choices"][0]["message"]["content"])
-
+        return clean_text(r.json()["choices"][0]["message"]["content"])
     except Exception as e:
         return f"Ошибка: {str(e)}"
 
 
 # ======================
-# LIMITS
+# LIMIT + PRO
 # ======================
-def check_limit():
-    return session.get("used", 0) < FREE_LIMIT
+def is_pro():
+    return session.get("pro", False)
+
+
+def can_use():
+    return is_pro() or session.get("used", 0) < FREE_LIMIT
 
 
 def add_usage():
-    session["used"] = session.get("used", 0) + 1
+    if not is_pro():
+        session["used"] = session.get("used", 0) + 1
 
 
 # ======================
@@ -53,7 +58,9 @@ def add_usage():
 # ======================
 def page(title, content):
     used = session.get("used", 0)
-    left = max(FREE_LIMIT - used, 0)
+    pro = is_pro()
+
+    left = "∞" if pro else max(FREE_LIMIT - used, 0)
 
     return f"""
 <html>
@@ -74,6 +81,14 @@ body {{
     border-radius:10px;
 }}
 
+.hero {{
+    background:#111;
+    color:white;
+    padding:20px;
+    border-radius:10px;
+    margin-bottom:20px;
+}}
+
 nav a {{
     margin-right:10px;
     text-decoration:none;
@@ -81,29 +96,12 @@ nav a {{
     color:#2d6cdf;
 }}
 
-.hero {{
-    padding:20px;
-    background:#111;
-    color:white;
-    border-radius:10px;
-    margin-bottom:20px;
-}}
-
-.pro {{
+.pro-box {{
     background: linear-gradient(90deg, #000, #333);
     color:white;
     padding:15px;
     border-radius:10px;
     margin-top:15px;
-}}
-
-button {{
-    background:#2d6cdf;
-    color:white;
-    border:none;
-    padding:10px;
-    cursor:pointer;
-    margin-top:10px;
 }}
 
 input, textarea {{
@@ -112,11 +110,19 @@ input, textarea {{
     padding:10px;
 }}
 
+button {{
+    background:#2d6cdf;
+    color:white;
+    border:none;
+    padding:10px;
+    margin-top:10px;
+    cursor:pointer;
+}}
+
 pre {{
     background:#eee;
     padding:15px;
     white-space:pre-wrap;
-    margin-top:15px;
 }}
 </style>
 </head>
@@ -126,22 +132,15 @@ pre {{
 
 <nav>
 <a href="/">Главная</a>
-<a href="/wb">WB / Ozon</a>
+<a href="/wb">WB/Ozon</a>
 <a href="/avito">Avito</a>
+<a href="/pro">PRO</a>
 </nav>
 
 <div class="hero">
-<h2>AI пишет продающие карточки товаров</h2>
-<p>WB / Ozon / Avito — за 10 секунд</p>
-<p>Бесплатно осталось: <b>{left}</b> генераций</p>
-</div>
-
-<div class="pro">
-<h3>🔥 PRO версия</h3>
-<p>• Без лимитов</p>
-<p>• Более сильные продающие тексты</p>
-<p>• Быстрее генерация</p>
-<p><b>299₽ / месяц (скоро)</b></p>
+<h2>AI карточки товаров</h2>
+<p>Бесплатно: {left} генераций</p>
+<p>{"PRO активирован" if pro else "FREE режим"}</p>
 </div>
 
 {content}
@@ -157,51 +156,32 @@ pre {{
 # ======================
 @app.route("/")
 def home():
-    return page("AI Sales Tool", """
-<h3>Что это:</h3>
-<p>AI создаёт продающие описания товаров</p>
-
-<h3>Для кого:</h3>
-<p>WB / Ozon / Avito продавцы</p>
-
-<h3>Результат:</h3>
-<p>Больше продаж без копирайтера</p>
-
-<a href="/wb"><button>Начать бесплатно</button></a>
+    return page("AI Tool", """
+<h3>Создавай продающие карточки товаров за 10 секунд</h3>
+<a href="/wb"><button>Начать</button></a>
 """)
 
 
 # ======================
-# WB / OZON
+# WB
 # ======================
 @app.route("/wb", methods=["GET", "POST"])
 def wb():
     result = ""
 
     if request.method == "POST":
-        if not check_limit():
-            return page("LIMIT", "<h3>Лимит исчерпан</h3><p>PRO версия скоро</p>")
+        if not can_use():
+            return page("LIMIT", "<h3>Лимит исчерпан</h3><a href='/pro'><button>Купить PRO</button></a>")
 
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
-        prompt = f"""
-Ты маркетинговый копирайтер.
-
-Напиши продающее описание для WB/Ozon.
-
-Товар: {product}
-Характеристики: {features}
-
-Стиль: продающий, простой, без воды.
-"""
+        prompt = f"Напиши продающее описание WB/Ozon: {product} {features}"
 
         result = ask_ai(prompt)
         add_usage()
 
-    return page("WB/Ozon", f"""
-<h2>WB / Ozon генератор</h2>
-
+    return page("WB", f"""
 <form method="POST">
 <input name="product" placeholder="Название товара">
 <textarea name="features" placeholder="Характеристики"></textarea>
@@ -220,34 +200,54 @@ def avito():
     result = ""
 
     if request.method == "POST":
-        if not check_limit():
-            return page("LIMIT", "<h3>Лимит исчерпан</h3>")
+        if not can_use():
+            return page("LIMIT", "<a href='/pro'><button>Купить PRO</button></a>")
 
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
-        prompt = f"""
-Ты пишешь объявления для Авито.
-
-Товар: {product}
-Описание: {features}
-
-Сделай коротко, продающе, чтобы звонили.
-"""
+        prompt = f"Сделай объявление Авито: {product} {features}"
 
         result = ask_ai(prompt)
         add_usage()
 
     return page("Avito", f"""
-<h2>Avito генератор</h2>
-
 <form method="POST">
-<input name="product" placeholder="Название товара">
-<textarea name="features" placeholder="Описание"></textarea>
+<input name="product">
+<textarea name="features"></textarea>
 <button>Сгенерировать</button>
 </form>
 
 <pre>{result}</pre>
+""")
+
+
+# ======================
+# PRO PAGE
+# ======================
+@app.route("/pro", methods=["GET", "POST"])
+def pro():
+    msg = ""
+
+    if request.method == "POST":
+        key = request.form.get("key", "")
+        if key == PRO_KEY:
+            session["pro"] = True
+            msg = "PRO активирован!"
+        else:
+            msg = "Неверный ключ"
+
+    return page("PRO", f"""
+<h2>PRO доступ</h2>
+
+<p>Введи ключ для активации PRO:</p>
+
+<form method="POST">
+<input name="key" placeholder="PRO ключ">
+<button>Активировать</button>
+</form>
+
+<p>{msg}</p>
 """)
 
 

@@ -1,9 +1,15 @@
-from flask import Flask, request
+from flask import Flask, request, session
 import requests
 import os
 import re
 
 app = Flask(__name__)
+app.secret_key = "super_secret_key_change_me"
+
+# ======================
+# CONFIG
+# ======================
+FREE_LIMIT = 5
 
 # ======================
 # CLEAN TEXT
@@ -26,9 +32,7 @@ def ask_ai(prompt):
             },
             json={
                 "model": "openai/gpt-4o-mini",
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ]
+                "messages": [{"role": "user", "content": prompt}]
             }
         )
 
@@ -40,9 +44,26 @@ def ask_ai(prompt):
 
 
 # ======================
-# UI TEMPLATE
+# LIMIT SYSTEM
+# ======================
+def check_limit():
+    used = session.get("used", 0)
+    if used >= FREE_LIMIT:
+        return False
+    return True
+
+
+def add_usage():
+    session["used"] = session.get("used", 0) + 1
+
+
+# ======================
+# UI
 # ======================
 def page(title, content):
+    used = session.get("used", 0)
+    left = max(FREE_LIMIT - used, 0)
+
     return f"""
     <html>
     <head>
@@ -60,7 +81,6 @@ def page(title, content):
                 background: white;
                 padding: 20px;
                 border-radius: 10px;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
             }}
 
             nav a {{
@@ -74,22 +94,30 @@ def page(title, content):
                 width: 100%;
                 margin-top: 10px;
                 padding: 10px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
             }}
 
             button {{
                 margin-top: 10px;
-                padding: 10px 15px;
+                padding: 10px;
                 background: #2d6cdf;
                 color: white;
                 border: none;
-                border-radius: 5px;
                 cursor: pointer;
             }}
 
-            button:hover {{
-                background: #1f4fbf;
+            .limit {{
+                background: #eee;
+                padding: 10px;
+                margin-bottom: 10px;
+            }}
+
+            .pro {{
+                background: black;
+                color: white;
+                padding: 10px;
+                margin-top: 10px;
+                display: inline-block;
+                cursor: pointer;
             }}
 
             pre {{
@@ -97,27 +125,8 @@ def page(title, content):
                 background: #f1f1f1;
                 padding: 15px;
                 margin-top: 15px;
-                border-radius: 5px;
-            }}
-
-            #loading {{
-                display: none;
-                margin-top: 10px;
-                color: gray;
             }}
         </style>
-
-        <script>
-            function showLoading() {{
-                document.getElementById("loading").style.display = "block";
-            }}
-
-            function copyText() {{
-                let text = document.getElementById("result").innerText;
-                navigator.clipboard.writeText(text);
-                alert("Скопировано!");
-            }}
-        </script>
     </head>
 
     <body>
@@ -130,9 +139,9 @@ def page(title, content):
                 <a href="/names">Названия</a>
             </nav>
 
-            <hr>
-
-            <h2>{title}</h2>
+            <div class="limit">
+                Бесплатные генерации: <b>{left}/{FREE_LIMIT}</b>
+            </div>
 
             {content}
 
@@ -151,37 +160,38 @@ def home():
 
 
 # ======================
-# WB / OZON
+# WB
 # ======================
 @app.route("/wb", methods=["GET", "POST"])
 def wb():
     result = ""
 
     if request.method == "POST":
+        if not check_limit():
+            return page("LIMIT", "<h3>Лимит исчерпан</h3><div class='pro'>Купить PRO (скоро)</div>")
+
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
         prompt = f"""
-Ты пишешь ТОЛЬКО на русском языке. Никаких других языков.
+Ты пишешь ТОЛЬКО на русском языке.
 
-Напиши продающее описание для WB/Ozon:
+Напиши продающее описание WB/Ozon:
 
 Товар: {product}
 Характеристики: {features}
 """
         result = ask_ai(prompt)
+        add_usage()
 
-    return page("WB / Ozon Generator", f"""
-        <form method="POST" onsubmit="showLoading()">
+    return page("WB/Ozon", f"""
+        <form method="POST">
             <input name="product" placeholder="Название товара">
             <textarea name="features" placeholder="Характеристики"></textarea>
             <button>Сгенерировать</button>
-            <div id="loading">⏳ Генерация...</div>
         </form>
 
-        <button onclick="copyText()">📋 Копировать</button>
-
-        <pre id="result">{result}</pre>
+        <pre>{result}</pre>
     """)
 
 
@@ -193,11 +203,14 @@ def avito():
     result = ""
 
     if request.method == "POST":
+        if not check_limit():
+            return page("LIMIT", "<h3>Лимит исчерпан</h3><div class='pro'>Купить PRO (скоро)</div>")
+
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
         prompt = f"""
-Ты пишешь ТОЛЬКО на русском языке. Никаких других языков.
+Ты пишешь ТОЛЬКО на русском языке.
 
 Сделай объявление Авито:
 
@@ -205,18 +218,16 @@ def avito():
 Описание: {features}
 """
         result = ask_ai(prompt)
+        add_usage()
 
-    return page("Avito Generator", f"""
-        <form method="POST" onsubmit="showLoading()">
+    return page("Avito", f"""
+        <form method="POST">
             <input name="product" placeholder="Название товара">
             <textarea name="features" placeholder="Описание"></textarea>
             <button>Сгенерировать</button>
-            <div id="loading">⏳ Генерация...</div>
         </form>
 
-        <button onclick="copyText()">📋 Копировать</button>
-
-        <pre id="result">{result}</pre>
+        <pre>{result}</pre>
     """)
 
 
@@ -228,31 +239,29 @@ def names():
     result = ""
 
     if request.method == "POST":
+        if not check_limit():
+            return page("LIMIT", "<h3>Лимит исчерпан</h3><div class='pro'>Купить PRO (скоро)</div>")
+
         product = request.form.get("product", "")
 
         prompt = f"""
-Ты пишешь ТОЛЬКО на русском языке. Никаких других языков.
+Ты пишешь ТОЛЬКО на русском языке.
 
-Придумай 10 продающих названий для товара:
+Придумай 10 названий:
 {product}
 """
         result = ask_ai(prompt)
+        add_usage()
 
-    return page("Name Generator", f"""
-        <form method="POST" onsubmit="showLoading()">
+    return page("Names", f"""
+        <form method="POST">
             <input name="product" placeholder="Товар">
             <button>Сгенерировать</button>
-            <div id="loading">⏳ Генерация...</div>
         </form>
 
-        <button onclick="copyText()">📋 Копировать</button>
-
-        <pre id="result">{result}</pre>
+        <pre>{result}</pre>
     """)
 
 
-# ======================
-# RUN
-# ======================
 if __name__ == "__main__":
     app.run()

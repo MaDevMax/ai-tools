@@ -4,27 +4,21 @@ import os
 import re
 
 app = Flask(__name__)
-app.secret_key = "super_secret_key_change_me"
+app.secret_key = "change_this_key"
 
-# ======================
-# CONFIG
-# ======================
 FREE_LIMIT = 5
 
+
 # ======================
-# CLEAN TEXT
+# AI
 # ======================
 def clean_text(text):
-    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
-    return text
+    return re.sub(r"\*\*(.*?)\*\*", r"\1", text)
 
 
-# ======================
-# AI REQUEST
-# ======================
 def ask_ai(prompt):
     try:
-        response = requests.post(
+        r = requests.post(
             "https://openrouter.ai/api/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
@@ -35,22 +29,16 @@ def ask_ai(prompt):
                 "messages": [{"role": "user", "content": prompt}]
             }
         )
-
-        data = response.json()
-        return clean_text(data["choices"][0]["message"]["content"])
-
+        return clean_text(r.json()["choices"][0]["message"]["content"])
     except Exception as e:
-        return f"Ошибка: {str(e)}"
+        return str(e)
 
 
 # ======================
-# LIMIT SYSTEM
+# LIMIT
 # ======================
 def check_limit():
-    used = session.get("used", 0)
-    if used >= FREE_LIMIT:
-        return False
-    return True
+    return session.get("used", 0) < FREE_LIMIT
 
 
 def add_usage():
@@ -62,101 +50,99 @@ def add_usage():
 # ======================
 def page(title, content):
     used = session.get("used", 0)
-    left = max(FREE_LIMIT - used, 0)
 
     return f"""
-    <html>
-    <head>
-        <title>{title}</title>
-        <style>
-            body {{
-                font-family: Arial;
-                background: #f5f5f5;
-                margin: 0;
-            }}
+<html>
+<head>
+<title>{title}</title>
+<style>
+body {{
+    font-family: Arial;
+    background:#f4f4f4;
+    margin:0;
+}}
 
-            .box {{
-                width: 800px;
-                margin: 40px auto;
-                background: white;
-                padding: 20px;
-                border-radius: 10px;
-            }}
+.container {{
+    width:800px;
+    margin:40px auto;
+    background:white;
+    padding:20px;
+    border-radius:10px;
+}}
 
-            nav a {{
-                margin-right: 15px;
-                text-decoration: none;
-                color: #2d6cdf;
-                font-weight: bold;
-            }}
+nav a {{
+    margin-right:10px;
+    text-decoration:none;
+    font-weight:bold;
+    color:#2d6cdf;
+}}
 
-            input, textarea {{
-                width: 100%;
-                margin-top: 10px;
-                padding: 10px;
-            }}
+.hero {{
+    padding:20px;
+    background:#111;
+    color:white;
+    border-radius:10px;
+    margin-bottom:20px;
+}}
 
-            button {{
-                margin-top: 10px;
-                padding: 10px;
-                background: #2d6cdf;
-                color: white;
-                border: none;
-                cursor: pointer;
-            }}
+button {{
+    background:#2d6cdf;
+    color:white;
+    border:none;
+    padding:10px;
+    cursor:pointer;
+    margin-top:10px;
+}}
 
-            .limit {{
-                background: #eee;
-                padding: 10px;
-                margin-bottom: 10px;
-            }}
+textarea,input {{
+    width:100%;
+    margin-top:10px;
+    padding:10px;
+}}
 
-            .pro {{
-                background: black;
-                color: white;
-                padding: 10px;
-                margin-top: 10px;
-                display: inline-block;
-                cursor: pointer;
-            }}
+pre {{
+    background:#eee;
+    padding:15px;
+    white-space:pre-wrap;
+}}
+</style>
+</head>
 
-            pre {{
-                white-space: pre-wrap;
-                background: #f1f1f1;
-                padding: 15px;
-                margin-top: 15px;
-            }}
-        </style>
-    </head>
+<body>
+<div class="container">
 
-    <body>
-        <div class="box">
+<nav>
+<a href="/">Главная</a>
+<a href="/wb">WB/Ozon</a>
+<a href="/avito">Avito</a>
+</nav>
 
-            <nav>
-                <a href="/">Главная</a>
-                <a href="/wb">WB/Ozon</a>
-                <a href="/avito">Авито</a>
-                <a href="/names">Названия</a>
-            </nav>
+<div class="hero">
+<h2>AI помогает продавать товары быстрее</h2>
+<p>Создавай продающие карточки товаров за 10 секунд</p>
+<p>Бесплатно: {FREE_LIMIT - used} генераций</p>
+</div>
 
-            <div class="limit">
-                Бесплатные генерации: <b>{left}/{FREE_LIMIT}</b>
-            </div>
+{content}
 
-            {content}
-
-        </div>
-    </body>
-    </html>
-    """
+</div>
+</body>
+</html>
+"""
 
 
 # ======================
-# HOME
+# HOME (ПРОДАЮЩАЯ)
 # ======================
 @app.route("/")
 def home():
-    return page("AI Tools", "<p>Выбери инструмент 👆</p>")
+    return page("AI Sales Tool", """
+<p><b>Что это:</b> AI пишет продающие карточки товаров</p>
+<p><b>Для кого:</b> WB / Ozon / Avito продавцы</p>
+<p><b>Результат:</b> больше продаж без копирайтера</p>
+
+<a href="/wb"><button>Начать бесплатно</button></a>
+""")
 
 
 # ======================
@@ -168,31 +154,32 @@ def wb():
 
     if request.method == "POST":
         if not check_limit():
-            return page("LIMIT", "<h3>Лимит исчерпан</h3><div class='pro'>Купить PRO (скоро)</div>")
+            return page("LIMIT", "<h3>Лимит исчерпан</h3><p>PRO версия скоро</p>")
 
-        product = request.form.get("product", "")
-        features = request.form.get("features", "")
+        p = request.form.get("product", "")
+        f = request.form.get("features", "")
 
         prompt = f"""
-Ты пишешь ТОЛЬКО на русском языке.
+Пиши ТОЛЬКО на русском.
 
-Напиши продающее описание WB/Ozon:
+Сделай продающее описание для WB/Ozon:
 
-Товар: {product}
-Характеристики: {features}
+Товар: {p}
+Характеристики: {f}
 """
+
         result = ask_ai(prompt)
         add_usage()
 
-    return page("WB/Ozon", f"""
-        <form method="POST">
-            <input name="product" placeholder="Название товара">
-            <textarea name="features" placeholder="Характеристики"></textarea>
-            <button>Сгенерировать</button>
-        </form>
+    return page("WB", f"""
+<form method="POST">
+<input name="product" placeholder="Название товара">
+<textarea name="features" placeholder="Характеристики"></textarea>
+<button>Сгенерировать</button>
+</form>
 
-        <pre>{result}</pre>
-    """)
+<pre>{result}</pre>
+""")
 
 
 # ======================
@@ -204,63 +191,32 @@ def avito():
 
     if request.method == "POST":
         if not check_limit():
-            return page("LIMIT", "<h3>Лимит исчерпан</h3><div class='pro'>Купить PRO (скоро)</div>")
+            return page("LIMIT", "<h3>Лимит исчерпан</h3>")
 
-        product = request.form.get("product", "")
-        features = request.form.get("features", "")
+        p = request.form.get("product", "")
+        f = request.form.get("features", "")
 
         prompt = f"""
-Ты пишешь ТОЛЬКО на русском языке.
+Пиши ТОЛЬКО на русском.
 
 Сделай объявление Авито:
 
-Товар: {product}
-Описание: {features}
+Товар: {p}
+Описание: {f}
 """
+
         result = ask_ai(prompt)
         add_usage()
 
     return page("Avito", f"""
-        <form method="POST">
-            <input name="product" placeholder="Название товара">
-            <textarea name="features" placeholder="Описание"></textarea>
-            <button>Сгенерировать</button>
-        </form>
+<form method="POST">
+<input name="product">
+<textarea name="features"></textarea>
+<button>Сгенерировать</button>
+</form>
 
-        <pre>{result}</pre>
-    """)
-
-
-# ======================
-# NAMES
-# ======================
-@app.route("/names", methods=["GET", "POST"])
-def names():
-    result = ""
-
-    if request.method == "POST":
-        if not check_limit():
-            return page("LIMIT", "<h3>Лимит исчерпан</h3><div class='pro'>Купить PRO (скоро)</div>")
-
-        product = request.form.get("product", "")
-
-        prompt = f"""
-Ты пишешь ТОЛЬКО на русском языке.
-
-Придумай 10 названий:
-{product}
-"""
-        result = ask_ai(prompt)
-        add_usage()
-
-    return page("Names", f"""
-        <form method="POST">
-            <input name="product" placeholder="Товар">
-            <button>Сгенерировать</button>
-        </form>
-
-        <pre>{result}</pre>
-    """)
+<pre>{result}</pre>
+""")
 
 
 if __name__ == "__main__":

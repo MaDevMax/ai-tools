@@ -54,7 +54,7 @@ def add_use():
 
 
 # ======================
-# UI TEMPLATE
+# UI
 # ======================
 def page(title, content):
     used = session.get("used", 0)
@@ -65,10 +65,11 @@ def page(title, content):
 <html>
 <head>
 <title>{title}</title>
+
 <style>
 body {{
     font-family: Arial;
-    background:#f4f4f4;
+    background: linear-gradient(120deg, #f4f4f4, #e9eef7);
     margin:0;
 }}
 
@@ -76,22 +77,23 @@ body {{
     width:850px;
     margin:40px auto;
     background:white;
-    padding:20px;
-    border-radius:10px;
+    padding:25px;
+    border-radius:12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
 }}
 
 nav a {{
-    margin-right:10px;
+    margin-right:12px;
     text-decoration:none;
     font-weight:bold;
     color:#2d6cdf;
 }}
 
 .hero {{
-    background:#111;
+    background: linear-gradient(90deg, #111, #333);
     color:white;
     padding:20px;
-    border-radius:10px;
+    border-radius:12px;
     margin-bottom:20px;
 }}
 
@@ -99,31 +101,57 @@ nav a {{
     background:#000;
     color:white;
     padding:15px;
-    border-radius:10px;
+    border-radius:12px;
     margin-top:15px;
 }}
 
 input, textarea {{
     width:100%;
     margin-top:10px;
-    padding:10px;
+    padding:12px;
+    border-radius:8px;
+    border:1px solid #ddd;
+    font-size:14px;
 }}
 
 button {{
     background:#2d6cdf;
     color:white;
     border:none;
-    padding:10px;
-    margin-top:10px;
+    padding:12px;
+    border-radius:8px;
+    margin-top:12px;
     cursor:pointer;
+    font-weight:bold;
 }}
 
-pre {{
-    background:#eee;
+button:hover {{
+    background:#1f4fbf;
+}}
+
+.loading {{
+    display:none;
+    margin-top:10px;
+    color:#666;
+    font-weight:bold;
+}}
+
+.result {{
+    margin-top:15px;
+    background:#f7f7f7;
     padding:15px;
+    border-radius:10px;
     white-space:pre-wrap;
+    border-left:4px solid #2d6cdf;
 }}
 </style>
+
+<script>
+function showLoading() {{
+    document.getElementById("loading").style.display = "block";
+}}
+</script>
+
 </head>
 
 <body>
@@ -137,9 +165,9 @@ pre {{
 </nav>
 
 <div class="hero">
-<h2>AI Product Builder</h2>
-<p>FREE: {left} генераций</p>
-<p>{"PRO ACTIVE" if pro else "FREE MODE"}</p>
+<h2>🚀 AI Product Builder</h2>
+<p>FREE осталось: <b>{left}</b> генераций</p>
+<p>{"💎 PRO ACTIVE" if pro else "FREE MODE"}</p>
 </div>
 
 {content}
@@ -156,13 +184,15 @@ pre {{
 @app.route("/")
 def home():
     return page("Home", """
-<h3>Генерация продающих карточек товаров</h3>
-<a href="/wb"><button>Начать</button></a>
+<h3>🔥 Создавай продающие карточки товаров за 10 секунд</h3>
+<p>WB / Ozon / Avito — быстрее чем копирайтер</p>
+
+<a href="/wb"><button>Начать бесплатно</button></a>
 """)
 
 
 # ======================
-# WB
+# WB / OZON
 # ======================
 @app.route("/wb", methods=["GET", "POST"])
 def wb():
@@ -170,7 +200,7 @@ def wb():
 
     if request.method == "POST":
         if not can_use():
-            return page("LIMIT", "<h3>Лимит закончился</h3><a href='/pro'><button>PRO доступ</button></a>")
+            return page("LIMIT", "<h3>Лимит закончился</h3><a href='/pro'><button>Включить PRO</button></a>")
 
         product = request.form.get("product", "")
         features = request.form.get("features", "")
@@ -180,14 +210,21 @@ def wb():
         result = ask_ai(prompt)
         add_use()
 
-    return page("WB", f"""
-<form method="POST">
-<input name="product" placeholder="Название товара">
-<textarea name="features" placeholder="Характеристики"></textarea>
-<button>Сгенерировать</button>
+    return page("WB/Ozon", f"""
+<h2>WB / Ozon генератор</h2>
+
+<form method="POST" onsubmit="showLoading()">
+<input name="product" placeholder="Название товара" required>
+<textarea name="features" placeholder="Характеристики" required></textarea>
+
+<button type="submit">Сгенерировать</button>
+
+<div id="loading" class="loading">
+⏳ Генерация... подождите
+</div>
 </form>
 
-<pre>{result}</pre>
+<div class="result">{result}</div>
 """)
 
 
@@ -200,24 +237,31 @@ def avito():
 
     if request.method == "POST":
         if not can_use():
-            return page("LIMIT", "<a href='/pro'><button>PRO доступ</button></a>")
+            return page("LIMIT", "<a href='/pro'><button>Включить PRO</button></a>")
 
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
-        prompt = f"Сделай объявление Авито: {product}. {features}"
+        prompt = f"Сделай продающее объявление Авито: {product}. {features}"
 
         result = ask_ai(prompt)
         add_use()
 
     return page("Avito", f"""
-<form method="POST">
-<input name="product" placeholder="Название товара">
-<textarea name="features"></textarea>
-<button>Сгенерировать</button>
+<h2>Avito генератор</h2>
+
+<form method="POST" onsubmit="showLoading()">
+<input name="product" placeholder="Название товара" required>
+<textarea name="features" placeholder="Описание" required></textarea>
+
+<button type="submit">Сгенерировать</button>
+
+<div id="loading" class="loading">
+⏳ Создаю объявление...
+</div>
 </form>
 
-<pre>{result}</pre>
+<div class="result">{result}</div>
 """)
 
 
@@ -233,15 +277,17 @@ def pro():
 
         if key == PRO_KEY:
             session["pro"] = True
-            msg = "PRO включен!"
+            msg = "💎 PRO активирован!"
         else:
-            msg = "Неверный ключ"
+            msg = "❌ Неверный ключ"
 
     return page("PRO", f"""
-<h2>PRO доступ</h2>
+<h2>💎 PRO доступ</h2>
+
+<p>Введи ключ для активации PRO:</p>
 
 <form method="POST">
-<input name="key" placeholder="введите ключ 1234">
+<input name="key" placeholder="например 1234">
 <button>Активировать</button>
 </form>
 

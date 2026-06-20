@@ -5,19 +5,12 @@ import re
 
 app = Flask(__name__)
 
-
-# =========================
-# CLEAN AI TEXT
-# =========================
+# ===== CLEAN TEXT =====
 def clean_text(text):
-    # убираем **жирный markdown**
     text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
     return text
 
-
-# =========================
-# AI REQUEST
-# =========================
+# ===== AI =====
 def ask_ai(prompt):
     try:
         response = requests.post(
@@ -28,9 +21,7 @@ def ask_ai(prompt):
             },
             json={
                 "model": "openai/gpt-4o-mini",
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ]
+                "messages": [{"role": "user", "content": prompt}]
             }
         )
 
@@ -38,13 +29,11 @@ def ask_ai(prompt):
         return clean_text(data["choices"][0]["message"]["content"])
 
     except Exception as e:
-        return f"Ошибка API: {str(e)}"
+        return f"Ошибка: {str(e)}"
 
 
-# =========================
-# UI TEMPLATE
-# =========================
-def render(title, body, loading=False):
+# ===== UI =====
+def page(title, content):
     return f"""
     <html>
     <head>
@@ -52,61 +41,44 @@ def render(title, body, loading=False):
         <style>
             body {{
                 font-family: Arial;
-                background: #f4f4f4;
+                background: #f5f5f5;
                 margin: 0;
-                padding: 0;
             }}
 
-            .container {{
-                width: 850px;
-                margin: 50px auto;
+            .box {{
+                width: 800px;
+                margin: 40px auto;
                 background: white;
-                padding: 30px;
+                padding: 20px;
                 border-radius: 10px;
-                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
             }}
 
             input, textarea {{
                 width: 100%;
-                padding: 10px;
                 margin-top: 10px;
-                border-radius: 6px;
-                border: 1px solid #ddd;
-                font-size: 14px;
+                padding: 10px;
             }}
 
             button {{
-                margin-top: 15px;
-                padding: 10px 20px;
-                background: #2d6cdf;
+                margin-top: 10px;
+                padding: 10px;
+                background: black;
                 color: white;
                 border: none;
-                border-radius: 6px;
                 cursor: pointer;
-            }}
-
-            button:hover {{
-                background: #1f4fbf;
-            }}
-
-            nav a {{
-                margin-right: 10px;
-                text-decoration: none;
-                color: #2d6cdf;
             }}
 
             pre {{
                 white-space: pre-wrap;
-                background: #f8f8f8;
+                background: #eee;
                 padding: 15px;
-                border-radius: 8px;
-                margin-top: 20px;
+                margin-top: 15px;
             }}
 
-            .loading {{
+            #loading {{
                 display: none;
                 margin-top: 10px;
-                color: #666;
+                color: gray;
             }}
         </style>
 
@@ -116,7 +88,7 @@ def render(title, body, loading=False):
             }}
 
             function copyText() {{
-                const text = document.getElementById("result").innerText;
+                let text = document.getElementById("result").innerText;
                 navigator.clipboard.writeText(text);
                 alert("Скопировано!");
             }}
@@ -124,147 +96,95 @@ def render(title, body, loading=False):
     </head>
 
     <body>
-        <div class="container">
-
-            <nav>
-                <a href="/">Главная</a>
-                <a href="/wb">WB/Ozon</a>
-                <a href="/avito">Авито</a>
-                <a href="/names">Названия</a>
-            </nav>
-
-            <hr>
-
+        <div class="box">
             <h2>{title}</h2>
-
-            {body}
-
+            {content}
         </div>
     </body>
     </html>
     """
 
 
-# =========================
-# HOME
-# =========================
+# ===== HOME =====
 @app.route("/")
 def home():
-    return render("AI Tools", "<p>Выбери инструмент выше</p>")
+    return page("AI Tools", "<p>Выбери инструмент</p>")
 
 
-# =========================
-# WB / OZON
-# =========================
+# ===== WB =====
 @app.route("/wb", methods=["GET", "POST"])
 def wb():
-
     result = ""
 
     if request.method == "POST":
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
-        prompt = f"""
-Напиши продающее описание для Ozon и Wildberries.
-
-Товар: {product}
-Характеристики: {features}
-"""
-
+        prompt = f"Напиши продающее описание для WB/Ozon: {product}. {features}"
         result = ask_ai(prompt)
 
-    return render("WB / Ozon генератор", f"""
-
+    return page("WB Generator", f"""
     <form method="POST" onsubmit="showLoading()">
         <input name="product" placeholder="Название товара">
-        <textarea name="features" rows="8" placeholder="Характеристики"></textarea>
-
-        <button type="submit">Сгенерировать</button>
-
-        <div id="loading" class="loading">⏳ Генерация текста...</div>
+        <textarea name="features" placeholder="Описание"></textarea>
+        <button>Сгенерировать</button>
+        <div id="loading">⏳ Генерация...</div>
     </form>
 
-    <button onclick="copyText()">📋 Скопировать результат</button>
+    <button onclick="copyText()">📋 Копировать</button>
 
     <pre id="result">{result}</pre>
-
     """)
 
 
-# =========================
-# AVITO
-# =========================
+# ===== AVITO =====
 @app.route("/avito", methods=["GET", "POST"])
 def avito():
-
     result = ""
 
     if request.method == "POST":
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
-        prompt = f"""
-Напиши объявление для Авито.
-
-Товар: {product}
-Детали: {features}
-"""
-
+        prompt = f"Сделай объявление Авито: {product}. {features}"
         result = ask_ai(prompt)
 
-    return render("Авито генератор", f"""
-
+    return page("Avito Generator", f"""
     <form method="POST" onsubmit="showLoading()">
         <input name="product" placeholder="Название товара">
-        <textarea name="features" rows="8" placeholder="Детали"></textarea>
-
-        <button type="submit">Сгенерировать</button>
-
-        <div id="loading" class="loading">⏳ Генерация текста...</div>
+        <textarea name="features" placeholder="Описание"></textarea>
+        <button>Сгенерировать</button>
+        <div id="loading">⏳ Генерация...</div>
     </form>
 
-    <button onclick="copyText()">📋 Скопировать результат</button>
+    <button onclick="copyText()">📋 Копировать</button>
 
     <pre id="result">{result}</pre>
-
     """)
 
 
-# =========================
-# NAMES
-# =========================
+# ===== NAMES =====
 @app.route("/names", methods=["GET", "POST"])
 def names():
-
     result = ""
 
     if request.method == "POST":
         product = request.form.get("product", "")
-
-        prompt = f"Придумай 10 продающих названий для товара: {product}"
-
+        prompt = f"Придумай 10 названий для: {product}"
         result = ask_ai(prompt)
 
-    return render("Названия товаров", f"""
-
+    return page("Name Generator", f"""
     <form method="POST" onsubmit="showLoading()">
         <input name="product" placeholder="Товар">
-
-        <button type="submit">Сгенерировать</button>
-
-        <div id="loading" class="loading">⏳ Генерация текста...</div>
+        <button>Сгенерировать</button>
+        <div id="loading">⏳ Генерация...</div>
     </form>
 
-    <button onclick="copyText()">📋 Скопировать результат</button>
+    <button onclick="copyText()">📋 Копировать</button>
 
     <pre id="result">{result}</pre>
-
     """)
 
 
-# =========================
-# RUN
-# =========================
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()

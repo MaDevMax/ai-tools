@@ -14,7 +14,10 @@ PRO_KEY = "1234"
 # AI REQUEST
 # ======================
 def clean_text(text):
-    return re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+    # убираем markdown полностью
+    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+    text = re.sub(r"#+\s*", "", text)
+    return text
 
 
 def ask_ai(prompt):
@@ -38,7 +41,7 @@ def ask_ai(prompt):
 
 
 # ======================
-# PRO + LIMITS
+# PRO LOGIC
 # ======================
 def is_pro():
     return session.get("pro", False)
@@ -69,17 +72,17 @@ def page(title, content):
 <style>
 body {{
     font-family: Arial;
-    background: linear-gradient(120deg, #f4f4f4, #e9eef7);
     margin:0;
+    background: linear-gradient(120deg, #f4f4f4, #e9eef7);
 }}
 
 .container {{
-    width:850px;
+    width:860px;
     margin:40px auto;
     background:white;
     padding:25px;
-    border-radius:12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    border-radius:14px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.1);
 }}
 
 nav a {{
@@ -93,7 +96,7 @@ nav a {{
     background: linear-gradient(90deg, #111, #333);
     color:white;
     padding:20px;
-    border-radius:12px;
+    border-radius:14px;
     margin-bottom:20px;
 }}
 
@@ -103,6 +106,7 @@ input, textarea {{
     padding:12px;
     border-radius:8px;
     border:1px solid #ddd;
+    font-size:14px;
 }}
 
 button {{
@@ -122,8 +126,8 @@ button:hover {{
 .loading {{
     display:none;
     margin-top:10px;
-    color:#666;
     font-weight:bold;
+    color:#555;
 }}
 
 .result {{
@@ -156,7 +160,7 @@ function showLoading() {{
 
 <div class="hero">
 <h2>🚀 AI Product Builder</h2>
-<p>FREE осталось: <b>{left}</b></p>
+<p>Осталось генераций: <b>{left}</b></p>
 <p>{"💎 PRO ACTIVE" if pro else "FREE MODE"}</p>
 </div>
 
@@ -174,14 +178,14 @@ function showLoading() {{
 @app.route("/")
 def home():
     return page("Home", """
-<h2>🔥 AI генератор карточек товаров</h2>
-<p>Создавай продающие тексты за 10 секунд</p>
+<h2>🔥 AI генератор продающих карточек</h2>
+<p>Создавай тексты уровня маркетинговых агентств</p>
 <a href="/wb"><button>Начать</button></a>
 """)
 
 
 # ======================
-# WB / OZON
+# WB / OZON (PRO STYLE)
 # ======================
 @app.route("/wb", methods=["GET", "POST"])
 def wb():
@@ -189,26 +193,31 @@ def wb():
 
     if request.method == "POST":
         if not can_use():
-            return page("LIMIT", "<h2>Лимит исчерпан</h2><a href='/pro'><button>Получить PRO</button></a>")
+            return page("LIMIT", "<h2>Лимит закончился</h2><a href='/pro'><button>Получить PRO</button></a>")
 
         product = request.form.get("product", "")
         features = request.form.get("features", "")
 
         prompt = f"""
-Ты топовый маркетолог уровня Amazon.
+Ты элитный маркетолог уровня Apple / Amazon.
 
-Сделай продающую карточку товара:
+ВАЖНО:
+- не используй markdown (##, **)
+- только чистый текст
+- используй эмодзи для структуры
 
-1. Заголовок
-2. Описание
-3. Преимущества
-4. Почему купить сейчас
-5. Для кого
+ФОРМАТ:
 
-Товар: {product}
-Характеристики: {features}
+🔥 ЗАГОЛОВОК
+✨ ОПИСАНИЕ
+💎 ПРЕИМУЩЕСТВА
+⚡ ПОЧЕМУ СЕЙЧАС
+👥 ДЛЯ КОГО
 
-Стиль: продающий, эмоциональный, без воды
+ТОВАР: {product}
+ХАРАКТЕРИСТИКИ: {features}
+
+СТИЛЬ: дорогой, уверенный, продающий
 """
 
         result = ask_ai(prompt)
@@ -224,7 +233,7 @@ def wb():
 <button type="submit">Сгенерировать</button>
 
 <div id="loading" class="loading">
-⏳ Генерация продающего текста...
+⏳ Создаю премиум продающий текст...
 </div>
 </form>
 
@@ -233,7 +242,7 @@ def wb():
 
 
 # ======================
-# AVITO
+# AVITO (PRO STYLE)
 # ======================
 @app.route("/avito", methods=["GET", "POST"])
 def avito():
@@ -247,18 +256,25 @@ def avito():
         features = request.form.get("features", "")
 
         prompt = f"""
-Ты эксперт по продажам на Avito.
+Ты топовый эксперт Avito продаж.
 
-Сделай объявление которое получает звонки:
+ВАЖНО:
+- без markdown
+- чистый текст
+- структурируй красиво
 
-1. Заголовок
-2. Описание
-3. Выгоды
-4. Почему купить сейчас
-5. Призыв к действию
+ФОРМАТ:
 
-Товар: {product}
-Описание: {features}
+🔥 ЗАГОЛОВОК
+📦 ОПИСАНИЕ
+💰 ВЫГОДЫ
+⚡ ПОЧЕМУ СЕЙЧАС
+📞 ПРИЗЫВ
+
+ТОВАР: {product}
+ОПИСАНИЕ: {features}
+
+СТИЛЬ: простой, уверенный, продающий
 """
 
         result = ask_ai(prompt)
@@ -274,7 +290,7 @@ def avito():
 <button type="submit">Сгенерировать</button>
 
 <div id="loading" class="loading">
-⏳ Создаю продающее объявление...
+⏳ Подготовка продающего объявления...
 </div>
 </form>
 
@@ -294,14 +310,14 @@ def pro():
 
         if key == PRO_KEY:
             session["pro"] = True
-            msg = "💎 PRO активирован!"
+            msg = "💎 PRO активирован! Добро пожаловать в премиум"
         else:
             msg = "❌ Неверный ключ"
 
     return page("PRO", f"""
-<h2>💎 PRO доступ</h2>
+<h2>💎 PRO версия</h2>
 
-<p>Введите ключ для активации PRO</p>
+<p>Введите ключ доступа</p>
 
 <form method="POST">
 <input name="key" placeholder="PRO ключ">

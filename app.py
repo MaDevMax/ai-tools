@@ -10,16 +10,18 @@ FREE_LIMIT = 5
 PRO_KEY = "1234"
 
 
-# ======================
-# AI REQUEST
-# ======================
+# =========================
+# CLEAN TEXT (убираем мусор)
+# =========================
 def clean_text(text):
-    # убираем markdown полностью
     text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
     text = re.sub(r"#+\s*", "", text)
     return text
 
 
+# =========================
+# AI REQUEST
+# =========================
 def ask_ai(prompt):
     try:
         r = requests.post(
@@ -40,9 +42,9 @@ def ask_ai(prompt):
         return f"Ошибка AI: {str(e)}"
 
 
-# ======================
-# PRO LOGIC
-# ======================
+# =========================
+# PRO SYSTEM
+# =========================
 def is_pro():
     return session.get("pro", False)
 
@@ -56,9 +58,9 @@ def add_use():
         session["used"] = session.get("used", 0) + 1
 
 
-# ======================
-# UI TEMPLATE
-# ======================
+# =========================
+# UI WRAPPER
+# =========================
 def page(title, content):
     used = session.get("used", 0)
     pro = is_pro()
@@ -100,13 +102,12 @@ nav a {{
     margin-bottom:20px;
 }}
 
-input, textarea {{
+input, textarea, select {{
     width:100%;
     margin-top:10px;
     padding:12px;
     border-radius:8px;
     border:1px solid #ddd;
-    font-size:14px;
 }}
 
 button {{
@@ -172,9 +173,9 @@ function showLoading() {{
 """
 
 
-# ======================
+# =========================
 # HOME
-# ======================
+# =========================
 @app.route("/")
 def home():
     return page("Home", """
@@ -184,9 +185,9 @@ def home():
 """)
 
 
-# ======================
-# WB / OZON (PRO STYLE)
-# ======================
+# =========================
+# WB / OZON (FREE + PRO + BOOST)
+# =========================
 @app.route("/wb", methods=["GET", "POST"])
 def wb():
     result = ""
@@ -197,27 +198,54 @@ def wb():
 
         product = request.form.get("product", "")
         features = request.form.get("features", "")
+        mode = request.form.get("mode", "free")
 
-        prompt = f"""
-Ты элитный маркетолог уровня Apple / Amazon.
+        if mode == "boost":
+            prompt = f"""
+Ты элитный маркетолог уровня Apple / Amazon / McKinsey.
+
+ЦЕЛЬ: максимальные продажи.
 
 ВАЖНО:
-- не используй markdown (##, **)
+- без markdown
 - только чистый текст
-- используй эмодзи для структуры
+- сильные эмоции и триггеры
 
 ФОРМАТ:
 
 🔥 ЗАГОЛОВОК
 ✨ ОПИСАНИЕ
-💎 ПРЕИМУЩЕСТВА
-⚡ ПОЧЕМУ СЕЙЧАС
-👥 ДЛЯ КОГО
+💎 ПРЕИМУЩЕСТВА (5 пунктов)
+⚡ СРОЧНОСТЬ / ДЕФИЦИТ
+📈 ПОЧЕМУ ЭТО ПРОДАСТСЯ
+👥 ЦЕЛЕВАЯ АУДИТОРИЯ
 
 ТОВАР: {product}
 ХАРАКТЕРИСТИКИ: {features}
+"""
 
-СТИЛЬ: дорогой, уверенный, продающий
+        elif mode == "pro":
+            prompt = f"""
+Ты профессиональный маркетолог.
+
+ФОРМАТ:
+
+🔥 Заголовок
+✨ Описание
+💎 Преимущества
+⚡ Почему сейчас
+👥 Для кого
+
+ТОВАР: {product}
+ХАРАКТЕРИСТИКИ: {features}
+"""
+
+        else:
+            prompt = f"""
+Сделай простое описание товара.
+
+ТОВАР: {product}
+ХАРАКТЕРИСТИКИ: {features}
 """
 
         result = ask_ai(prompt)
@@ -227,23 +255,33 @@ def wb():
 <h2>WB / Ozon генератор</h2>
 
 <form method="POST" onsubmit="showLoading()">
+
 <input name="product" placeholder="Название товара" required>
+
 <textarea name="features" placeholder="Характеристики" required></textarea>
+
+<label>Режим:</label>
+<select name="mode">
+  <option value="free">🆓 Free</option>
+  <option value="pro">💎 Pro</option>
+  <option value="boost">🚀 Sales Boost</option>
+</select>
 
 <button type="submit">Сгенерировать</button>
 
 <div id="loading" class="loading">
-⏳ Создаю премиум продающий текст...
+⏳ Создаю продающий текст...
 </div>
+
 </form>
 
 <div class="result">{result}</div>
 """)
 
 
-# ======================
-# AVITO (PRO STYLE)
-# ======================
+# =========================
+# AVITO
+# =========================
 @app.route("/avito", methods=["GET", "POST"])
 def avito():
     result = ""
@@ -254,27 +292,38 @@ def avito():
 
         product = request.form.get("product", "")
         features = request.form.get("features", "")
+        mode = request.form.get("mode", "free")
 
-        prompt = f"""
-Ты топовый эксперт Avito продаж.
+        if mode == "boost":
+            prompt = f"""
+Ты топ-эксперт Avito продаж.
 
-ВАЖНО:
-- без markdown
-- чистый текст
-- структурируй красиво
+ЦЕЛЬ: звонки и заявки.
 
-ФОРМАТ:
-
-🔥 ЗАГОЛОВОК
-📦 ОПИСАНИЕ
-💰 ВЫГОДЫ
-⚡ ПОЧЕМУ СЕЙЧАС
-📞 ПРИЗЫВ
+🔥 Заголовок
+📦 Описание
+💰 Выгоды
+⚡ Срочность
+📞 Призыв
 
 ТОВАР: {product}
 ОПИСАНИЕ: {features}
+"""
 
-СТИЛЬ: простой, уверенный, продающий
+        elif mode == "pro":
+            prompt = f"""
+Сделай продающее объявление.
+
+ТОВАР: {product}
+ОПИСАНИЕ: {features}
+"""
+
+        else:
+            prompt = f"""
+Обычное описание товара.
+
+ТОВАР: {product}
+ОПИСАНИЕ: {features}
 """
 
         result = ask_ai(prompt)
@@ -284,23 +333,33 @@ def avito():
 <h2>Avito генератор</h2>
 
 <form method="POST" onsubmit="showLoading()">
+
 <input name="product" placeholder="Название товара" required>
+
 <textarea name="features" placeholder="Описание" required></textarea>
+
+<label>Режим:</label>
+<select name="mode">
+  <option value="free">🆓 Free</option>
+  <option value="pro">💎 Pro</option>
+  <option value="boost">🚀 Sales Boost</option>
+</select>
 
 <button type="submit">Сгенерировать</button>
 
 <div id="loading" class="loading">
-⏳ Подготовка продающего объявления...
+⏳ Подготовка объявления...
 </div>
+
 </form>
 
 <div class="result">{result}</div>
 """)
 
 
-# ======================
+# =========================
 # PRO PAGE
-# ======================
+# =========================
 @app.route("/pro", methods=["GET", "POST"])
 def pro():
     msg = ""
@@ -310,17 +369,15 @@ def pro():
 
         if key == PRO_KEY:
             session["pro"] = True
-            msg = "💎 PRO активирован! Добро пожаловать в премиум"
+            msg = "💎 PRO активирован!"
         else:
             msg = "❌ Неверный ключ"
 
     return page("PRO", f"""
-<h2>💎 PRO версия</h2>
-
-<p>Введите ключ доступа</p>
+<h2>💎 PRO доступ</h2>
 
 <form method="POST">
-<input name="key" placeholder="PRO ключ">
+<input name="key" placeholder="Введите PRO ключ">
 <button>Активировать</button>
 </form>
 

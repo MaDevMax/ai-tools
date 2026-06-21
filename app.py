@@ -1,27 +1,32 @@
-from flask import Flask, request, session
+"""
+🔥 AI SaaS PRODUCT BUILDER
+Subscription-based version (Stripe-ready)
+"""
+
+from flask import Flask, request, session, redirect
 import requests
 import os
+import time
 import re
 
 app = Flask(__name__)
-app.secret_key = "change_this_key"
+app.secret_key = "CHANGE_ME_SUPER_SECRET"
 
 FREE_LIMIT = 5
-PRO_KEY = "1234"
 
 
-# =========================
-# CLEAN TEXT (убираем мусор)
-# =========================
+# =========================================================
+# 🧠 CLEAN OUTPUT (premium text)
+# =========================================================
 def clean_text(text):
     text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
     text = re.sub(r"#+\s*", "", text)
     return text
 
 
-# =========================
-# AI REQUEST
-# =========================
+# =========================================================
+# 🤖 AI CALL
+# =========================================================
 def ask_ai(prompt):
     try:
         r = requests.post(
@@ -39,32 +44,60 @@ def ask_ai(prompt):
         return clean_text(r.json()["choices"][0]["message"]["content"])
 
     except Exception as e:
-        return f"Ошибка AI: {str(e)}"
+        return f"AI ERROR: {str(e)}"
 
 
-# =========================
-# PRO SYSTEM
-# =========================
-def is_pro():
-    return session.get("pro", False)
+# =========================================================
+# 💳 SUBSCRIPTION SYSTEM (КЛЮЧЕВОЕ)
+# =========================================================
+
+def is_sub_active():
+    """
+    Проверка подписки:
+    - есть статус active
+    - не истек срок
+    """
+
+    if session.get("subscription_status") != "active":
+        return False
+
+    end_time = session.get("subscription_end", 0)
+
+    if time.time() > end_time:
+        session["subscription_status"] = "expired"
+        return False
+
+    return True
 
 
 def can_use():
-    return is_pro() or session.get("used", 0) < FREE_LIMIT
+    """
+    Можно использовать если:
+    - активная подписка
+    ИЛИ
+    - не превышен free лимит
+    """
+
+    if is_sub_active():
+        return True
+
+    return session.get("used", 0) < FREE_LIMIT
 
 
 def add_use():
-    if not is_pro():
+    if not is_sub_active():
         session["used"] = session.get("used", 0) + 1
 
 
-# =========================
-# UI WRAPPER
-# =========================
+# =========================================================
+# 🎨 UI WRAPPER
+# =========================================================
 def page(title, content):
+
     used = session.get("used", 0)
-    pro = is_pro()
-    left = "∞" if pro else max(FREE_LIMIT - used, 0)
+    sub = is_sub_active()
+
+    status = "💎 ACTIVE SUBSCRIPTION" if sub else "🆓 FREE MODE"
 
     return f"""
 <html>
@@ -79,27 +112,26 @@ body {{
 }}
 
 .container {{
-    width:860px;
-    margin:40px auto;
-    background:white;
-    padding:25px;
-    border-radius:14px;
-    box-shadow:0 10px 30px rgba(0,0,0,0.1);
+    width: 860px;
+    margin: 40px auto;
+    background: white;
+    padding: 25px;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
 }}
 
 nav a {{
-    margin-right:12px;
-    text-decoration:none;
-    font-weight:bold;
-    color:#2d6cdf;
+    margin-right: 12px;
+    text-decoration: none;
+    font-weight: bold;
+    color: #2d6cdf;
 }}
 
 .hero {{
     background: linear-gradient(90deg, #111, #333);
-    color:white;
-    padding:20px;
-    border-radius:14px;
-    margin-bottom:20px;
+    color: white;
+    padding: 20px;
+    border-radius: 14px;
 }}
 
 input, textarea, select {{
@@ -117,18 +149,6 @@ button {{
     padding:12px;
     border-radius:8px;
     cursor:pointer;
-    font-weight:bold;
-}}
-
-button:hover {{
-    background:#1f4fbf;
-}}
-
-.loading {{
-    display:none;
-    margin-top:10px;
-    font-weight:bold;
-    color:#555;
 }}
 
 .result {{
@@ -150,128 +170,114 @@ function showLoading() {{
 </head>
 
 <body>
+
 <div class="container">
 
 <nav>
-<a href="/">Главная</a>
+<a href="/">Home</a>
 <a href="/wb">WB/Ozon</a>
-<a href="/avito">Avito</a>
-<a href="/pro">PRO</a>
+<a href="/subscribe">Subscribe</a>
 </nav>
 
 <div class="hero">
-<h2>🚀 AI Product Builder</h2>
-<p>Осталось генераций: <b>{left}</b></p>
-<p>{"💎 PRO ACTIVE" if pro else "FREE MODE"}</p>
+<h2>🚀 AI SaaS Product Builder</h2>
+<p>Status: <b>{status}</b></p>
+<p>Free uses left: <b>{max(FREE_LIMIT - used, 0)}</b></p>
 </div>
 
 {content}
 
 </div>
+
 </body>
 </html>
 """
 
 
-# =========================
-# HOME
-# =========================
+# =========================================================
+# 🏠 HOME
+# =========================================================
 @app.route("/")
 def home():
     return page("Home", """
-<h2>🔥 AI генератор продающих карточек</h2>
-<p>Создавай тексты уровня маркетинговых агентств</p>
-<a href="/wb"><button>Начать</button></a>
+<h2>🔥 AI генератор карточек товаров</h2>
+<p>Подписка открывает безлимит генераций</p>
+<a href="/wb"><button>Start</button></a>
 """)
 
 
-# =========================
-# WB / OZON (FREE + PRO + BOOST)
-# =========================
+# =========================================================
+# 🛒 GENERATOR
+# =========================================================
 @app.route("/wb", methods=["GET", "POST"])
 def wb():
+
     result = ""
 
     if request.method == "POST":
-        if not can_use():
-            return page("LIMIT", "<h2>Лимит закончился</h2><a href='/pro'><button>Получить PRO</button></a>")
 
-        product = request.form.get("product", "")
-        features = request.form.get("features", "")
-        mode = request.form.get("mode", "free")
+        if not can_use():
+            return page("BLOCKED", """
+<h2>❌ Доступ закрыт</h2>
+<p>Нужна активная подписка</p>
+<a href="/subscribe"><button>Подписаться</button></a>
+""")
+
+        product = request.form.get("product")
+        features = request.form.get("features")
+        mode = request.form.get("mode")
 
         if mode == "boost":
             prompt = f"""
-Ты элитный маркетолог уровня Apple / Amazon / McKinsey.
-
-ЦЕЛЬ: максимальные продажи.
-
-ВАЖНО:
-- без markdown
-- только чистый текст
-- сильные эмоции и триггеры
-
-ФОРМАТ:
-
-🔥 ЗАГОЛОВОК
-✨ ОПИСАНИЕ
-💎 ПРЕИМУЩЕСТВА (5 пунктов)
-⚡ СРОЧНОСТЬ / ДЕФИЦИТ
-📈 ПОЧЕМУ ЭТО ПРОДАСТСЯ
-👥 ЦЕЛЕВАЯ АУДИТОРИЯ
+Ты маркетолог Apple уровня.
 
 ТОВАР: {product}
-ХАРАКТЕРИСТИКИ: {features}
+{features}
+
+ФОРМАТ:
+🔥 Заголовок
+✨ Описание
+💎 Преимущества
+⚡ Срочность
+📈 Продажи
 """
 
         elif mode == "pro":
             prompt = f"""
-Ты профессиональный маркетолог.
-
-ФОРМАТ:
-
-🔥 Заголовок
-✨ Описание
-💎 Преимущества
-⚡ Почему сейчас
-👥 Для кого
+Профессиональный маркетинг.
 
 ТОВАР: {product}
-ХАРАКТЕРИСТИКИ: {features}
+{features}
 """
 
         else:
             prompt = f"""
-Сделай простое описание товара.
+Обычное описание.
 
 ТОВАР: {product}
-ХАРАКТЕРИСТИКИ: {features}
+{features}
 """
 
         result = ask_ai(prompt)
         add_use()
 
     return page("WB", f"""
-<h2>WB / Ozon генератор</h2>
+<h2>Generator</h2>
 
 <form method="POST" onsubmit="showLoading()">
 
-<input name="product" placeholder="Название товара" required>
+<input name="product" placeholder="Product name" required>
+<textarea name="features" placeholder="Features" required></textarea>
 
-<textarea name="features" placeholder="Характеристики" required></textarea>
-
-<label>Режим:</label>
 <select name="mode">
-  <option value="free">🆓 Free</option>
-  <option value="pro">💎 Pro</option>
-  <option value="boost">🚀 Sales Boost</option>
+<option value="free">Free</option>
+<option value="pro">Pro</option>
+<option value="boost">Boost</option>
 </select>
 
-<button type="submit">Сгенерировать</button>
+<button>Generate</button>
 
-<div id="loading" class="loading">
-⏳ Создаю продающий текст...
-</div>
+<div id="loading" style="display:none;">⏳ Generating...</div>
 
 </form>
 
@@ -279,111 +285,44 @@ def wb():
 """)
 
 
-# =========================
-# AVITO
-# =========================
-@app.route("/avito", methods=["GET", "POST"])
-def avito():
-    result = ""
+# =========================================================
+# 💳 SUBSCRIPTION PAGE (ЗАГОТОВКА ПОД STRIPE)
+# =========================================================
+@app.route("/subscribe")
+def subscribe():
 
-    if request.method == "POST":
-        if not can_use():
-            return page("LIMIT", "<a href='/pro'><button>Получить PRO</button></a>")
+    return page("Subscribe", """
+<h2>💳 Подписка PRO</h2>
 
-        product = request.form.get("product", "")
-        features = request.form.get("features", "")
-        mode = request.form.get("mode", "free")
+<p>Безлимит генераций + Boost режим</p>
 
-        if mode == "boost":
-            prompt = f"""
-Ты топ-эксперт Avito продаж.
+<h3>Plan: 9.99€ / month</h3>
 
-ЦЕЛЬ: звонки и заявки.
+<!-- 🔥 СЮДА ПОДКЛЮЧАЕМ STRIPE -->
+<a href="/fake-pay"><button>Subscribe now</button></a>
 
-🔥 Заголовок
-📦 Описание
-💰 Выгоды
-⚡ Срочность
-📞 Призыв
+<hr>
 
-ТОВАР: {product}
-ОПИСАНИЕ: {features}
-"""
-
-        elif mode == "pro":
-            prompt = f"""
-Сделай продающее объявление.
-
-ТОВАР: {product}
-ОПИСАНИЕ: {features}
-"""
-
-        else:
-            prompt = f"""
-Обычное описание товара.
-
-ТОВАР: {product}
-ОПИСАНИЕ: {features}
-"""
-
-        result = ask_ai(prompt)
-        add_use()
-
-    return page("Avito", f"""
-<h2>Avito генератор</h2>
-
-<form method="POST" onsubmit="showLoading()">
-
-<input name="product" placeholder="Название товара" required>
-
-<textarea name="features" placeholder="Описание" required></textarea>
-
-<label>Режим:</label>
-<select name="mode">
-  <option value="free">🆓 Free</option>
-  <option value="pro">💎 Pro</option>
-  <option value="boost">🚀 Sales Boost</option>
-</select>
-
-<button type="submit">Сгенерировать</button>
-
-<div id="loading" class="loading">
-⏳ Подготовка объявления...
-</div>
-
-</form>
-
-<div class="result">{result}</div>
+<p>⚠️ В реальном проекте здесь будет Stripe Checkout</p>
 """)
 
 
-# =========================
-# PRO PAGE
-# =========================
-@app.route("/pro", methods=["GET", "POST"])
-def pro():
-    msg = ""
+# =========================================================
+# 💳 FAKE PAYMENT (ЗАГЛУШКА)
+# =========================================================
+@app.route("/fake-pay")
+def fake_pay():
 
-    if request.method == "POST":
-        key = request.form.get("key")
+    # симуляция подписки на 30 дней
+    session["subscription_status"] = "active"
+    session["subscription_end"] = time.time() + 30 * 24 * 60 * 60
+    session["used"] = 0
 
-        if key == PRO_KEY:
-            session["pro"] = True
-            msg = "💎 PRO активирован!"
-        else:
-            msg = "❌ Неверный ключ"
-
-    return page("PRO", f"""
-<h2>💎 PRO доступ</h2>
-
-<form method="POST">
-<input name="key" placeholder="Введите PRO ключ">
-<button>Активировать</button>
-</form>
-
-<p>{msg}</p>
-""")
+    return redirect("/")
 
 
+# =========================================================
+# 🚀 RUN
+# =========================================================
 if __name__ == "__main__":
     app.run(debug=True)

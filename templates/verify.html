@@ -1,23 +1,48 @@
 {% extends "base.html" %}
 
-{% block title %}Verify{% endblock %}
+{% block title %}Verify Account{% endblock %}
 
 {% block content %}
 
-<div class="card">
+<div class="container">
 
-    <h2>🔐 Verify account</h2>
+    <div class="card">
 
-    <p style="opacity:0.6">Enter email + code from registration</p>
+        <h2>🔐 Verify your account</h2>
 
-    <form method="POST">
+        <p style="opacity:0.7; margin-bottom:15px;">
+            Enter the code we sent to your email
+        </p>
 
-        <input name="email" placeholder="Email" required>
-        <input name="code" placeholder="6-digit code" required>
+        {% if error %}
+            <div style="color:red; margin-bottom:10px;">
+                {{ error }}
+            </div>
+        {% endif %}
 
-        <button type="submit">Verify</button>
+        <form method="POST">
 
-    </form>
+            <input type="email"
+                   name="email"
+                   placeholder="Email"
+                   required
+                   value="{{ email if email else '' }}">
+
+            <input type="text"
+                   name="code"
+                   placeholder="6-digit code"
+                   required>
+
+            <button type="submit">Verify account</button>
+
+        </form>
+
+        <div class="auth-footer">
+            Already verified?
+            <a href="/login">Go to login</a>
+        </div>
+
+    </div>
 
 </div>
 

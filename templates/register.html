@@ -1,39 +1,38 @@
-{% extends "base.html" %}
+from flask import request, redirect, render_template, session
+import random
+import hashlib
 
-{% block title %}Register{% endblock %}
+from db import create_user, get_user_by_email
+from services.email_service import send_verification_email
 
-{% block content %}
 
-<div class="card">
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-    <h2>🧠 Create account</h2>
 
-    <p style="opacity:0.6">
-        After registration you will receive verification step
-    </p>
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
 
-    {% if error %}
-        <div style="color:#ef4444; margin-top:10px;">
-            {{ error }}
-        </div>
-    {% endif %}
+        email = request.form["email"]
+        password = request.form["password"]
 
-    <form method="POST">
+        # проверка есть ли user
+        if get_user_by_email(email):
+            return "User already exists"
 
-        <label>Email</label>
-        <input type="email" name="email" placeholder="Enter email" required>
+        # hash password
+        password_hash = hash_password(password)
 
-        <label>Password</label>
-        <input type="password" name="password" placeholder="Enter password" required>
+        # verification code
+        code = str(random.randint(100000, 999999))
 
-        <button type="submit">Create account</button>
+        # create user in DB
+        create_user(email, password_hash, code)
 
-    </form>
+        # send email
+        send_verification_email(email, code)
 
-    <div class="auth-footer">
-        Already have account? <a href="/login">Login</a>
-    </div>
+        return redirect("/verify")
 
-</div>
-
-{% endblock %}
+    return render_template("register.html")

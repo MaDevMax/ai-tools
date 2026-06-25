@@ -1,5 +1,4 @@
 import sqlite3
-import time
 
 DB_NAME = "app.db"
 
@@ -21,8 +20,6 @@ def init_db():
         plan TEXT DEFAULT 'free',
         used INTEGER DEFAULT 0,
         sub_end INTEGER DEFAULT 0,
-        verified INTEGER DEFAULT 0,
-        verification_code TEXT,
         created_at INTEGER DEFAULT (strftime('%s','now'))
     )
     """)
@@ -42,80 +39,78 @@ def init_db():
     c.close()
 
 
-def create_user(email, password_hash, code):
+def create_user(email, password_hash, code=""):
     c = conn()
+
     c.execute(
-        "INSERT INTO users (email, password_hash, verification_code) VALUES (?, ?, ?)",
-        (email, password_hash, code)
+        "INSERT INTO users (email, password_hash) VALUES (?, ?)",
+        (email, password_hash)
     )
+
     c.commit()
     c.close()
 
 
 def get_user_by_email(email):
     c = conn()
-    u = c.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+
+    u = c.execute(
+        "SELECT * FROM users WHERE email=?",
+        (email,)
+    ).fetchone()
+
     c.close()
     return u
 
 
 def get_user_by_id(uid):
     c = conn()
-    u = c.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+
+    u = c.execute(
+        "SELECT * FROM users WHERE id=?",
+        (uid,)
+    ).fetchone()
+
     c.close()
     return u
 
 
-def verify_user(email, code):
-    c = conn()
-
-    u = c.execute("SELECT verification_code FROM users WHERE email=?", (email,)).fetchone()
-
-    if not u:
-        return False
-
-    if u["verification_code"] != code:
-        return False
-
-    c.execute("UPDATE users SET verified=1 WHERE email=?", (email,))
-    c.commit()
-    c.close()
-    return True
-
-
 def update_usage(uid, used):
     c = conn()
-    c.execute("UPDATE users SET used=? WHERE id=?", (used, uid))
+
+    c.execute(
+        "UPDATE users SET used=? WHERE id=?",
+        (used, uid)
+    )
+
     c.commit()
     c.close()
 
 
 def activate_pro(uid, sub_end):
     c = conn()
-    c.execute("UPDATE users SET plan='pro', sub_end=? WHERE id=?", (sub_end, uid))
+
+    c.execute(
+        "UPDATE users SET plan='pro', sub_end=? WHERE id=?",
+        (sub_end, uid)
+    )
+
     c.commit()
     c.close()
 
 
 def save_generation(uid, tool, product, result):
     c = conn()
+
     c.execute(
         "INSERT INTO events (user_id, tool, product, result) VALUES (?, ?, ?, ?)",
         (uid, tool, product, result)
     )
+
     c.commit()
     c.close()
 
 
-def get_stats():
-    c = conn()
-
-    users = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    pro = c.execute("SELECT COUNT(*) FROM users WHERE plan='pro'").fetchone()[0]
-
-    c.close()
-
-    return {"users": users, "pro": pro}
 def get_generations(uid):
     c = conn()
 
@@ -126,3 +121,22 @@ def get_generations(uid):
 
     c.close()
     return rows
+
+
+def get_stats():
+    c = conn()
+
+    users = c.execute(
+        "SELECT COUNT(*) FROM users"
+    ).fetchone()[0]
+
+    pro = c.execute(
+        "SELECT COUNT(*) FROM users WHERE plan='pro'"
+    ).fetchone()[0]
+
+    c.close()
+
+    return {
+        "users": users,
+        "pro": pro
+    }

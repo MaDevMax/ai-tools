@@ -1,12 +1,10 @@
 from flask import Flask, render_template, request, redirect, session
-import random
 import time
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from db import (
     init_db,
     create_user,
-    verify_user,
     get_user_by_email,
     get_user_by_id,
     update_usage,
@@ -30,8 +28,10 @@ init_db()
 
 def current_user():
     uid = session.get("user_id")
+
     if not uid:
         return None
+
     return get_user_by_id(uid)
 
 
@@ -49,8 +49,10 @@ def can_use(user):
 
 @app.route("/")
 def home():
+
     if current_user():
         return redirect("/dashboard")
+
     return render_template("home.html")
 
 
@@ -67,50 +69,29 @@ def register():
         password = request.form.get("password")
 
         if not email or not password:
-            return render_template("register.html", error="Fill all fields")
+            return render_template(
+                "register.html",
+                error="Fill all fields"
+            )
 
         if get_user_by_email(email):
-            return render_template("register.html", error="User already exists")
-
-        code = str(random.randint(100000, 999999))
+            return render_template(
+                "register.html",
+                error="User already exists"
+            )
 
         create_user(
             email,
-            generate_password_hash(password),
-            code
+            generate_password_hash(password)
         )
 
-        return render_template(
-            "verify.html",
-            email=email,
-            code=code,
-            message="Verification code created"
-        )
+        user = get_user_by_email(email)
+
+        session["user_id"] = user["id"]
+
+        return redirect("/dashboard")
 
     return render_template("register.html")
-
-
-# =========================
-# VERIFY
-# =========================
-
-@app.route("/verify", methods=["GET", "POST"])
-def verify():
-
-    if request.method == "POST":
-
-        email = request.form.get("email")
-        code = request.form.get("code")
-
-        if verify_user(email, code):
-            return render_template(
-                "login.html",
-                message="Account verified! Please login"
-            )
-
-        return render_template("verify.html", error="Wrong code", email=email)
-
-    return render_template("verify.html")
 
 
 # =========================
@@ -128,13 +109,19 @@ def login():
         user = get_user_by_email(email)
 
         if not user:
-            return render_template("login.html", error="User not found")
+            return render_template(
+                "login.html",
+                error="User not found"
+            )
 
-        if not user["verified"]:
-            return render_template("login.html", error="Account not verified")
-
-        if not check_password_hash(user["password_hash"], password):
-            return render_template("login.html", error="Wrong password")
+        if not check_password_hash(
+            user["password_hash"],
+            password
+        ):
+            return render_template(
+                "login.html",
+                error="Wrong password"
+            )
 
         session["user_id"] = user["id"]
 
@@ -149,8 +136,10 @@ def login():
 
 @app.route("/logout")
 def logout():
+
     session.clear()
-    return redirect("/login")
+
+    return redirect("/")
 
 
 # =========================
@@ -173,13 +162,14 @@ def dashboard():
 
 
 # =========================
-# WB GENERATOR
+# WB
 # =========================
 
 @app.route("/wb", methods=["GET", "POST"])
 def wb():
 
     user = current_user()
+
     if not user:
         return redirect("/login")
 
@@ -193,14 +183,33 @@ def wb():
         product = request.form.get("product")
         features = request.form.get("features")
 
-        result = f"WB DESCRIPTION FOR: {product}\n\n{features}\n\n🔥 SELLING TEXT GENERATED"
+        result = f"""
+WB DESCRIPTION FOR:
+
+{product}
+
+{features}
+
+🔥 GENERATED SELLING TEXT
+"""
 
         if not is_pro(user):
-            update_usage(user["id"], user["used"] + 1)
+            update_usage(
+                user["id"],
+                user["used"] + 1
+            )
 
-        save_generation(user["id"], "WB", product, result)
+        save_generation(
+            user["id"],
+            "WB",
+            product,
+            result
+        )
 
-    return render_template("wb.html", result=result)
+    return render_template(
+        "wb.html",
+        result=result
+    )
 
 
 # =========================
@@ -211,6 +220,7 @@ def wb():
 def avito():
 
     user = current_user()
+
     if not user:
         return redirect("/login")
 
@@ -224,33 +234,54 @@ def avito():
         product = request.form.get("product")
         features = request.form.get("features")
 
-        result = f"AVITO AD FOR: {product}\n\n{features}\n\n🚀 READY AD TEXT"
+        result = f"""
+AVITO AD FOR:
+
+{product}
+
+{features}
+
+🚀 READY AD TEXT
+"""
 
         if not is_pro(user):
-            update_usage(user["id"], user["used"] + 1)
+            update_usage(
+                user["id"],
+                user["used"] + 1
+            )
 
-        save_generation(user["id"], "AVITO", product, result)
+        save_generation(
+            user["id"],
+            "AVITO",
+            product,
+            result
+        )
 
-    return render_template("avito.html", result=result)
+    return render_template(
+        "avito.html",
+        result=result
+    )
 
 
 # =========================
-# PRO PAGE
+# PRO
 # =========================
 
 @app.route("/pro")
 def pro():
+
     return render_template("pro.html")
 
 
 # =========================
-# PAY (MOCK)
+# PAY
 # =========================
 
 @app.route("/pay")
 def pay():
 
     user = current_user()
+
     if not user:
         return redirect("/login")
 
@@ -258,17 +289,21 @@ def pay():
 
 
 # =========================
-# PAY SUCCESS (MOCK UPGRADE)
+# MOCK PAYMENT SUCCESS
 # =========================
 
 @app.route("/pay-success")
 def pay_success():
 
     user = current_user()
+
     if not user:
         return redirect("/login")
 
-    activate_pro(user["id"], int(time.time()) + 30 * 24 * 60 * 60)
+    activate_pro(
+        user["id"],
+        int(time.time()) + 30 * 24 * 60 * 60
+    )
 
     return redirect("/dashboard")
 

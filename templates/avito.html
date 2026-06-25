@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}
+Avito
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+
+    <h2>📢 Генератор объявлений Avito</h2>
+
+    <p>
+        Получите готовое продающее объявление для публикации на Avito.
+    </p>
+
+    <form method="POST" id="generateForm">
+
+        <label>Название товара</label>
+
+        <input
+            type="text"
+            name="product"
+            placeholder="Например: iPhone 15 Pro"
+            required
+        >
+
+        <label>Описание</label>
+
+        <textarea
+            name="features"
+            rows="8"
+            placeholder="Опишите состояние, характеристики и преимущества..."
+            required
+        ></textarea>
+
+        <button id="generateBtn" type="submit">
+            🚀 Сгенерировать
+        </button>
+
+    </form>
+
+</div>
+
+{% if result %}
+
+<div class="card result-card">
+
+    <div class="result-header">
+
+        <h3>✨ Результат</h3>
+
+        <button
+            type="button"
+            class="copy-btn"
+            onclick="copyResult()"
+        >
+            📋 Скопировать
+        </button>
+
+    </div>
+
+    <div id="resultText" class="result">
+{{ result }}
+    </div>
+
+</div>
+
+{% endif %}
+
+{% endblock %}

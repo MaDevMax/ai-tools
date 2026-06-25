@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="card">
+
+    <h2>📊 Dashboard</h2>
+
+    <p>Email: {{ user.email }}</p>
+    <p>Plan: {{ user.plan }}</p>
+
+    <div class="dashboard-grid">
+
+        <div class="card stat-card">
+            <h3>Users</h3>
+            <div class="big-value">{{ stats.users }}</div>
+        </div>
+
+        <div class="card stat-card">
+            <h3>PRO</h3>
+            <div class="big-value">{{ stats.pro }}</div>
+        </div>
+
+        <div class="card stat-card">
+            <h3>Verified</h3>
+            <div class="big-value">{{ stats.verified }}</div>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

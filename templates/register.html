@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+
+<div class="card">
+
+    <h2>🧠 Create account</h2>
+
+    <p style="opacity:0.6">
+        After registration you will receive verification step
+    </p>
+
+    {% if error %}
+        <div style="color:#ef4444; margin-top:10px;">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="POST">
+
+        <label>Email</label>
+        <input type="email" name="email" placeholder="Enter email" required>
+
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Enter password" required>
+
+        <button type="submit">Create account</button>
+
+    </form>
+
+    <div class="auth-footer">
+        Already have account? <a href="/login">Login</a>
+    </div>
+
+</div>
+
+{% endblock %}

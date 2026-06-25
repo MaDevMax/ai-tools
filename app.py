@@ -1,318 +1,281 @@
-from flask import Flask, request, session, redirect
-import requests
-import os
+from flask import Flask, render_template, request, redirect, session
+import random
 import time
-import re
+from werkzeug.security import generate_password_hash, check_password_hash
+
+from db import (
+    init_db,
+    create_user,
+    verify_user,
+    get_user_by_email,
+    get_user_by_id,
+    update_usage,
+    activate_pro,
+    save_generation,
+    get_generations,
+    get_stats
+)
 
 app = Flask(__name__)
-app.secret_key = "CHANGE_ME_SECRET"
+app.secret_key = "dev-secret-key"
 
 FREE_LIMIT = 5
-SUB_PRICE = 299
+
+init_db()
 
 
-# =========================================================
-# 🧠 CLEAN TEXT
-# =========================================================
-def clean_text(text):
-    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
-    text = re.sub(r"#+\s*", "", text)
-    return text
+# =========================
+# HELPERS
+# =========================
+
+def current_user():
+    uid = session.get("user_id")
+    if not uid:
+        return None
+    return get_user_by_id(uid)
 
 
-# =========================================================
-# 🤖 AI
-# =========================================================
-def ask_ai(prompt):
-    try:
-        r = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "openai/gpt-4o-mini",
-                "messages": [{"role": "user", "content": prompt}]
-            }
-        )
-
-        return clean_text(r.json()["choices"][0]["message"]["content"])
-
-    except Exception as e:
-        return f"AI ERROR: {str(e)}"
+def is_pro(user):
+    return user and user["plan"] == "pro" and user["sub_end"] > int(time.time())
 
 
-# =========================================================
-# 💳 SUB STATUS
-# =========================================================
-def is_pro():
-    return session.get("sub_status") == "active" and time.time() < session.get("sub_end", 0)
+def can_use(user):
+    return user and (is_pro(user) or user["used"] < FREE_LIMIT)
 
 
-def can_use():
-    return is_pro() or session.get("used", 0) < FREE_LIMIT
+# =========================
+# HOME
+# =========================
 
-
-def add_use():
-    if not is_pro():
-        session["used"] = session.get("used", 0) + 1
-
-
-# =========================================================
-# 🎨 UI WRAPPER
-# =========================================================
-def page(title, content):
-
-    used = session.get("used", 0)
-    pro = is_pro()
-
-    return f"""
-<html>
-<head>
-<title>{title}</title>
-
-<style>
-body {{
-    font-family: Arial;
-    margin:0;
-    background:#f4f6fb;
-}}
-
-.container {{
-    width: 900px;
-    margin: 30px auto;
-    background: white;
-    padding: 25px;
-    border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}}
-
-.nav {{
-    display:flex;
-    gap:10px;
-    margin-bottom:20px;
-}}
-
-.nav a {{
-    text-decoration:none;
-    padding:10px 15px;
-    background:#eee;
-    border-radius:8px;
-    color:#333;
-}}
-
-.nav a:hover {{
-    background:#ddd;
-}}
-
-.hero {{
-    background: linear-gradient(90deg,#111,#333);
-    color:white;
-    padding:20px;
-    border-radius:14px;
-}}
-
-input, textarea, select {{
-    width:100%;
-    margin-top:10px;
-    padding:12px;
-    border-radius:8px;
-    border:1px solid #ddd;
-}}
-
-button {{
-    background:#2d6cdf;
-    color:white;
-    border:none;
-    padding:12px;
-    border-radius:8px;
-    cursor:pointer;
-}}
-
-.result {{
-    margin-top:15px;
-    background:#f7f7f7;
-    padding:15px;
-    border-radius:10px;
-    white-space:pre-wrap;
-    border-left:4px solid #2d6cdf;
-}}
-</style>
-
-</head>
-
-<body>
-
-<div class="container">
-
-<div class="nav">
-<a href="/">🏠 Home</a>
-<a href="/wb">📦 WB/Ozon</a>
-<a href="/avito">📢 Avito</a>
-<a href="/pro">💎 Pro</a>
-</div>
-
-<div class="hero">
-<h2>🚀 AI SaaS Builder</h2>
-<p>{"💎 PRO ACTIVE" if pro else "🆓 FREE MODE"}</p>
-<p>Free left: {max(FREE_LIMIT - used, 0)}</p>
-</div>
-
-{content}
-
-</div>
-
-</body>
-</html>
-"""
-
-
-# =========================================================
-# 🏠 HOME
-# =========================================================
 @app.route("/")
 def home():
-    return page("Home", """
-<h2>🔥 AI сервис для карточек товаров</h2>
-<p>Маркетинг уровня агентства в одном инструменте</p>
-""")
+    if current_user():
+        return redirect("/dashboard")
+    return render_template("home.html")
 
 
-# =========================================================
-# 📦 WB / OZON
-# =========================================================
+# =========================
+# REGISTER
+# =========================
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+
+    if request.method == "POST":
+
+        email = request.form.get("email")
+        password = request.form.get("password")
+
+        if not email or not password:
+            return render_template("register.html", error="Fill all fields")
+
+        if get_user_by_email(email):
+            return render_template("register.html", error="User already exists")
+
+        code = str(random.randint(100000, 999999))
+
+        create_user(
+            email,
+            generate_password_hash(password),
+            code
+        )
+
+        return render_template(
+            "verify.html",
+            email=email,
+            code=code,
+            message="Verification code created"
+        )
+
+    return render_template("register.html")
+
+
+# =========================
+# VERIFY
+# =========================
+
+@app.route("/verify", methods=["GET", "POST"])
+def verify():
+
+    if request.method == "POST":
+
+        email = request.form.get("email")
+        code = request.form.get("code")
+
+        if verify_user(email, code):
+            return render_template(
+                "login.html",
+                message="Account verified! Please login"
+            )
+
+        return render_template("verify.html", error="Wrong code", email=email)
+
+    return render_template("verify.html")
+
+
+# =========================
+# LOGIN
+# =========================
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+
+    if request.method == "POST":
+
+        email = request.form.get("email")
+        password = request.form.get("password")
+
+        user = get_user_by_email(email)
+
+        if not user:
+            return render_template("login.html", error="User not found")
+
+        if not user["verified"]:
+            return render_template("login.html", error="Account not verified")
+
+        if not check_password_hash(user["password_hash"], password):
+            return render_template("login.html", error="Wrong password")
+
+        session["user_id"] = user["id"]
+
+        return redirect("/dashboard")
+
+    return render_template("login.html")
+
+
+# =========================
+# LOGOUT
+# =========================
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
+
+# =========================
+# DASHBOARD
+# =========================
+
+@app.route("/dashboard")
+def dashboard():
+
+    user = current_user()
+
+    if not user:
+        return redirect("/login")
+
+    return render_template(
+        "dashboard.html",
+        user=user,
+        stats=get_stats()
+    )
+
+
+# =========================
+# WB GENERATOR
+# =========================
+
 @app.route("/wb", methods=["GET", "POST"])
 def wb():
 
+    user = current_user()
+    if not user:
+        return redirect("/login")
+
     result = ""
 
     if request.method == "POST":
 
-        if not can_use():
-            return page("BLOCKED", """
-<h2>❌ Лимит исчерпан</h2>
-<a href="/pro"><button>💎 Купить Pro 299₽</button></a>
-""")
+        if not can_use(user):
+            return redirect("/pro")
 
         product = request.form.get("product")
         features = request.form.get("features")
 
-        if not is_pro():
-            mode = "free"
-        else:
-            mode = "pro"
+        result = f"WB DESCRIPTION FOR: {product}\n\n{features}\n\n🔥 SELLING TEXT GENERATED"
 
-        if mode == "pro":
-            prompt = f"""
-Ты топ маркетолог.
+        if not is_pro(user):
+            update_usage(user["id"], user["used"] + 1)
 
-ТОВАР: {product}
-{features}
-"""
-        else:
-            prompt = f"""
-Базовое описание товара.
+        save_generation(user["id"], "WB", product, result)
 
-ТОВАР: {product}
-{features}
-"""
-
-        result = ask_ai(prompt)
-        add_use()
-
-    return page("WB", f"""
-<h2>📦 WB / Ozon генератор</h2>
-
-<form method="POST">
-
-<input name="product" placeholder="Название товара" required>
-<textarea name="features" placeholder="Описание" required></textarea>
-
-<button>Сгенерировать</button>
-
-</form>
-
-<div class="result">{result}</div>
-""")
+    return render_template("wb.html", result=result)
 
 
-# =========================================================
-# 📢 AVITO (ВКЛАДКА ВЕРНУЛАСЬ)
-# =========================================================
+# =========================
+# AVITO
+# =========================
+
 @app.route("/avito", methods=["GET", "POST"])
 def avito():
 
+    user = current_user()
+    if not user:
+        return redirect("/login")
+
     result = ""
 
     if request.method == "POST":
 
-        if not can_use():
-            return page("BLOCKED", """
-<h2>❌ Лимит исчерпан</h2>
-<a href="/pro"><button>💎 Pro</button></a>
-""")
+        if not can_use(user):
+            return redirect("/pro")
 
         product = request.form.get("product")
         features = request.form.get("features")
 
-        if not is_pro():
-            prompt = f"простое объявление: {product} {features}"
-        else:
-            prompt = f"""
-Ты эксперт Avito продаж.
+        result = f"AVITO AD FOR: {product}\n\n{features}\n\n🚀 READY AD TEXT"
 
-Сделай сильное объявление:
-ТОВАР: {product}
-{features}
-"""
-        result = ask_ai(prompt)
-        add_use()
+        if not is_pro(user):
+            update_usage(user["id"], user["used"] + 1)
 
-    return page("Avito", f"""
-<h2>📢 Avito генератор</h2>
+        save_generation(user["id"], "AVITO", product, result)
 
-<form method="POST">
-<input name="product" placeholder="Товар" required>
-<textarea name="features" placeholder="Описание" required></textarea>
-<button>Сгенерировать</button>
-</form>
-
-<div class="result">{result}</div>
-""")
+    return render_template("avito.html", result=result)
 
 
-# =========================================================
-# 💎 PRO PAGE
-# =========================================================
+# =========================
+# PRO PAGE
+# =========================
+
 @app.route("/pro")
 def pro():
-    return page("Pro", f"""
-<h2>💎 Pro подписка</h2>
-
-<p>Все вкладки + мощные тексты</p>
-
-<h3>{SUB_PRICE} ₽ / месяц</h3>
-
-<a href="/fake-pay"><button>Купить</button></a>
-""")
+    return render_template("pro.html")
 
 
-# =========================================================
-# 💳 FAKE PAY (ПОТОМ YOOKASSA)
-# =========================================================
-@app.route("/fake-pay")
-def fake_pay():
+# =========================
+# PAY (MOCK)
+# =========================
 
-    session["sub_status"] = "active"
-    session["sub_end"] = time.time() + 30 * 24 * 60 * 60
-    session["used"] = 0
+@app.route("/pay")
+def pay():
 
-    return redirect("/")
+    user = current_user()
+    if not user:
+        return redirect("/login")
+
+    return render_template("pay_pending.html")
 
 
-# =========================================================
-# 🚀 RUN
-# =========================================================
+# =========================
+# PAY SUCCESS (MOCK UPGRADE)
+# =========================
+
+@app.route("/pay-success")
+def pay_success():
+
+    user = current_user()
+    if not user:
+        return redirect("/login")
+
+    activate_pro(user["id"], int(time.time()) + 30 * 24 * 60 * 60)
+
+    return redirect("/dashboard")
+
+
+# =========================
+# RUN
+# =========================
+
 if __name__ == "__main__":
     app.run(debug=True)

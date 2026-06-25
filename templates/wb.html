@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}
+WB / Ozon
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+
+    <h2>📦 WB / Ozon AI генератор</h2>
+
+    <p style="opacity:0.7">
+        Создание продающих карточек уровня агентства за 10 секунд
+    </p>
+
+    <form method="POST" id="generateForm">
+
+        <label>Название товара</label>
+        <input type="text" name="product" placeholder="Например: Беспроводные наушники" required>
+
+        <label>Описание / характеристики</label>
+        <textarea name="features" rows="6" placeholder="Опишите товар..." required></textarea>
+
+        <button id="generateBtn" type="submit">
+            🚀 Сгенерировать
+        </button>
+
+    </form>
+
+</div>
+
+{% if result %}
+
+<div class="card result-card">
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+
+        <h3 style="margin:0;">✨ Результат</h3>
+
+        <button class="copy-btn" onclick="copyResult()">
+            📋 Copy
+        </button>
+
+    </div>
+
+    <div class="result" id="resultText">
+{{ result }}
+    </div>
+
+</div>
+
+{% else %}
+
+<div class="card" style="text-align:center; opacity:0.6; padding:40px;">
+
+    <h3>🧠 Готов к генерации</h3>
+
+    <p>
+        Введите данные товара и получите продающее описание
+    </p>
+
+</div>
+
+{% endif %}
+
+{% endblock %}

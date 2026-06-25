@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Verify{% endblock %}
+
+{% block content %}
+
+<div class="card">
+
+    <h2>🔐 Verify account</h2>
+
+    <p style="opacity:0.6">Enter email + code from registration</p>
+
+    <form method="POST">
+
+        <input name="email" placeholder="Email" required>
+        <input name="code" placeholder="6-digit code" required>
+
+        <button type="submit">Verify</button>
+
+    </form>
+
+</div>
+
+{% endblock %}
